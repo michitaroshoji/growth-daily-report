@@ -144,10 +144,11 @@ body {
   background: #fff;
   color: #3c4043;
   border-color: #dadce0;
-  font-size: 14.5px;
+  /* 社内利用が主なので、画面の中でこのボタンが一番目立つようにする */
+  font-size: 16px;
   font-weight: 700;
-  padding: 12px 18px;
-  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.16);
+  padding: 16px 18px;
+  box-shadow: 0 2px 6px rgba(60, 64, 67, 0.2);
 }
 
 .btn-google:hover:not(:disabled) {
@@ -157,8 +158,8 @@ body {
 }
 
 .google-icon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
 }
 
@@ -166,6 +167,45 @@ body {
   margin: 14px 0 0;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+/* ---------- 「または」の区切り線 ---------- */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 16px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ---------- 社外向け（デモアカウント）ログイン ---------- */
+.login-demo {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 14px 16px;
+  text-align: left;
+}
+
+.login-demo-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  text-align: center;
+}
+
+.login-demo .btn {
+  width: 100%;
+  margin-top: 2px;
 }
 
 /* ---------- フォーム共通 ---------- */
@@ -200,7 +240,9 @@ body {
 textarea,
 select,
 input[type='text'],
-input[type='number'] {
+input[type='number'],
+input[type='email'],
+input[type='password'] {
   width: 100%;
   font: inherit;
   font-size: 13.5px;
