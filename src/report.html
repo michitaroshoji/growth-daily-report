@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>日報作成 | Growth Daily Report</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- 全画面で同じ構成のヘッダー（src/list.html と揃えること） -->
+    <div class="topbar">
+      <header class="site-header">
+        <a class="logo logo-sm" href="report.html">Growth Daily Report</a>
+        <div class="nav">
+          <button type="button" class="btn btn-demo" id="manual-btn">💡 アプリの使い方</button>
+          <button type="button" class="btn btn-demo" id="demo-btn">📊 デモモードを見る</button>
+          <span class="user-chip" id="user-name"></span>
+          <button type="button" class="btn btn-ghost" id="logout-btn">ログアウト</button>
+        </div>
+      </header>
+
+      <nav class="mainnav" aria-label="画面切り替え">
+        <a class="navbtn" data-nav="list" href="list.html">過去の日報</a>
+        <a class="navbtn" data-nav="report" href="report.html">日報作成</a>
+        <a class="navbtn" data-nav="dashboard" href="report.html#dashboard">データ分析</a>
+      </nav>
+
+      <p class="demo-banner" id="demo-banner" hidden></p>
+    </div>
+
+    <div id="panel-report">
+    <form id="report-form" class="report-layout">
+      <!-- ============ 編集モードのときだけ出る帯 ============ -->
+      <div class="edit-banner" id="edit-banner" hidden>
+        <span id="edit-banner-text">過去の日報を編集しています</span>
+        <a class="edit-banner-cancel" href="list.html">編集をやめる</a>
+      </div>
+
+      <!-- ============ 入力途中の下書きを復元したときの帯 ============ -->
+      <div class="draft-banner" id="draft-banner" hidden>
+        <span id="draft-banner-text"></span>
+        <button type="button" class="draft-discard" id="draft-discard">下書きを破棄する</button>
+      </div>
+
+      <!-- ============ 対象日（この日報がどの日のものか） ============ -->
+      <div class="date-bar">
+        <label class="date-field">
+          <span class="date-label">対象日</span>
+          <!-- 今日以外の日付も保存できるよう、required も max も付けない -->
+          <input type="date" id="report-date" />
+        </label>
+        <span class="date-note" id="date-note" hidden></span>
+      </div>
+
+      <!-- ============ 0. 前回の振り返り ============ -->
+      <section class="card review-card">
+        <h2 class="section-title">
+          <span class="badge">0</span>前回の振り返り
+          <span class="title-note" id="prev-date"></span>
+        </h2>
+        <p class="hint" id="prev-status">読み込み中...</p>
+        <!-- 前回の宣言を階層つきで描画。末端タスクにだけ評価ボタンが付く（report.js） -->
+        <div class="commit-lines" id="commit-lines"></div>
+      </section>
+
+      <!-- ============ 1. 業務実績（1.5 数値実績を内包） ============ -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="badge">1</span>業務実績
+        </h2>
+        <textarea
+          id="fact"
+          rows="6"
+          placeholder="※本日の業務内容が数値実績のみで完結している場合、この欄は空欄のままで構いません。"
+        ></textarea>
+
+        <!-- 1. の中に入れ子で持つ数値実績 -->
+        <div class="subsection">
+          <h3 class="subsection-title">
+            <span class="sub-no">1.5</span>数値実績
+            <button type="button" class="btn btn-mini" id="metrics-setting-btn">項目を設定</button>
+          </h3>
+          <!-- 自動算出（手入力できない）。手入力欄と同じ行構造・同じトーンで並べる -->
+          <div class="metrics-grid auto-metrics" id="auto-metrics">
+            <div class="metric-field" data-auto="carryover">
+              <span class="metric-name">🏆 引き継ぎタスク達成</span>
+              <span class="metric-readonly" id="auto-carryover">–</span>
+              <span class="metric-unit">自動</span>
+            </div>
+            <div class="metric-field" data-auto="today">
+              <span class="metric-name">📝 今日のタスク総件数</span>
+              <span class="metric-readonly" id="auto-today">0</span>
+              <span class="metric-unit">件</span>
+            </div>
+          </div>
+
+          <div class="metrics-grid" id="metrics-inputs"></div>
+          <p class="hint" id="metrics-empty" hidden>
+            まだ評価項目がありません。「項目を設定」から追加してください。
+          </p>
+        </div>
+      </section>
+
+      <!-- ============ 2〜6 ============ -->
+      <section class="card">
+        <label class="field">
+          <span class="field-label">2. 未達成・課題</span>
+          <textarea id="problem" rows="3" placeholder="できなかったこと、うまくいかなかったことは？"></textarea>
+        </label>
+
+        <!-- 3. 未達成/一部達成にした宣言がここへ自動で転記される -->
+        <div class="field">
+          <span class="field-label">3. 要因分析</span>
+          <div class="why-dynamic" id="why-dynamic"></div>
+          <textarea
+            id="why"
+            rows="3"
+            placeholder="その他の要因分析。「なぜ？」を3回深掘りしましょう"
+          ></textarea>
+        </div>
+
+        <label class="field">
+          <span class="field-label">4. 次回の宣言（次回のタスク）</span>
+          <textarea
+            id="commitment"
+            rows="5"
+            placeholder="次回までにやることを箇条書きで。&#10;Shift+Enterで子タスクにすると、次回は末端のタスクだけを評価します。"
+          ></textarea>
+          <span class="hint">
+            子を持つ行は「見出し」として扱われ、次回は最小単位のタスクにだけ評価ボタンが出ます。
+          </span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">5. 改善の準備</span>
+          <textarea id="action" rows="3" placeholder="宣言を実行するために、今日のうちに準備することは？"></textarea>
+        </label>
+
+        <label class="field">
+          <span class="field-label">6. 学び・備考</span>
+          <textarea id="insight" rows="3" placeholder="今日得た学び、共有したいこと、相談したいこと"></textarea>
+        </label>
+
+        <label class="field field-last">
+          <span class="field-label">7. 一言（フリーコメント）</span>
+          <textarea id="one_word" rows="2" placeholder="ひとことどうぞ。感想・雑談・今日の気分など何でも"></textarea>
+        </label>
+      </section>
+
+      <!-- ============ PMV（バリュー）自己評価 ============ -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="badge badge-alt">PMV</span>バリュー自己評価
+          <span class="title-note">今日の自分は？</span>
+        </h2>
+        <div class="pmv-list" id="pmv-list"></div>
+      </section>
+
+      <!-- ============ 送信バー ============ -->
+      <div class="submit-bar">
+        <p id="message" class="message" role="status"></p>
+        <button type="submit" class="btn btn-primary btn-submit" id="submit-btn">日報を送信する</button>
+      </div>
+    </form>
+    </div>
+
+    <!-- ============================================================
+         データ分析ダッシュボード
+         ============================================================ -->
+    <div id="panel-dashboard" class="dashboard" hidden>
+      <div class="dash-head">
+        <h1 class="page-title">データ分析</h1>
+        <div class="list-tools">
+          <label class="filter">
+            <span>期間</span>
+            <select id="dash-range">
+              <option value="recent7">直近7記入日分</option>
+              <option value="all">全期間</option>
+              <!-- 「月ごと」はデータが存在する月だけを dashboard.js が流し込む -->
+              <optgroup label="月ごと" id="range-months"></optgroup>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <!-- ===== ① 数値実績の代表値と推移 ===== -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="badge">1</span>数値実績の推移
+          <label class="filter title-filter">
+            <span>項目</span>
+            <select id="dash-metric"></select>
+          </label>
+        </h2>
+
+        <!-- ラベルは選択中の項目に応じて dashboard.js が差し替える -->
+        <div class="stat-row">
+          <div class="stat">
+            <p class="stat-label" id="stat-label-1">平均</p>
+            <p class="stat-value" id="stat-1">–</p>
+          </div>
+          <div class="stat">
+            <p class="stat-label" id="stat-label-2">合計</p>
+            <p class="stat-value" id="stat-2">–</p>
+          </div>
+          <div class="stat">
+            <p class="stat-label" id="stat-label-3">最高</p>
+            <p class="stat-value" id="stat-3">–</p>
+          </div>
+        </div>
+
+        <figure class="chart-figure" id="metric-figure">
+          <figcaption class="chart-caption" id="metric-caption">日別の推移</figcaption>
+          <div class="chart-box"><canvas id="metric-chart"></canvas></div>
+        </figure>
+
+        <p class="empty-note" id="metric-empty" hidden></p>
+
+        <details class="table-view" id="metric-table-view">
+          <summary>数値を表で見る</summary>
+          <div class="table-scroll"><table id="metric-table"></table></div>
+        </details>
+      </section>
+
+      <!-- ===== ② バリュー評価のレーダーチャート ===== -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="badge badge-alt">PMV</span>バリュー自己評価の平均
+          <span class="title-note">5点満点</span>
+        </h2>
+
+        <p class="empty-note" id="pmv-empty" hidden></p>
+
+        <div class="pmv-analysis" id="pmv-analysis">
+          <figure class="chart-figure">
+            <figcaption class="chart-caption" id="pmv-caption">期間平均</figcaption>
+            <div class="chart-box chart-radar"><canvas id="pmv-chart"></canvas></div>
+          </figure>
+
+          <div class="pmv-insight">
+            <div class="insight-group">
+              <p class="insight-head insight-head-good">強み</p>
+              <ul class="insight-list" id="pmv-strengths"></ul>
+            </div>
+            <div class="insight-group">
+              <p class="insight-head insight-head-gap">伸びしろ</p>
+              <ul class="insight-list" id="pmv-gaps"></ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== ③ AIによる統合分析（モック） ===== -->
+      <section class="card ai-card">
+        <h2 class="section-title">
+          <span class="badge badge-ai">AI</span>統合分析レポート
+          <span class="mock-badge">簡易分析</span>
+        </h2>
+        <p class="hint">要因分析のテキスト・数値実績・バリュー評価の3つを突き合わせた分析結果です。</p>
+        <div class="ai-list" id="ai-report"></div>
+      </section>
+    </div>
+
+    <!-- ============ 数値評価項目の設定モーダル ============ -->
+    <!-- フォームの外に置く：モーダル内のEnterで日報が送信されるのを防ぐため -->
+    <div class="modal-backdrop" id="metrics-modal" hidden>
+      <div class="modal card" role="dialog" aria-modal="true" aria-labelledby="metrics-modal-title">
+        <h3 class="modal-title" id="metrics-modal-title">数値実績の設定</h3>
+
+        <p class="setting-group-title">自動算出する項目の表示</p>
+        <p class="hint">オフにすると、日報作成画面・過去の日報・コピー文からも消えます。</p>
+        <ul class="metric-setting-list" id="auto-metric-toggles"></ul>
+
+        <p class="setting-group-title">手入力する項目</p>
+        <p class="hint">日報で毎日入力したい数値を登録します（例: 新規架電数／件）。</p>
+        <ul class="metric-setting-list" id="metric-setting-list"></ul>
+
+        <div class="metric-add-row">
+          <input type="text" id="metric-name" placeholder="評価項目名（例: 新規架電数）" maxlength="30" />
+          <select id="metric-unit" aria-label="単位"></select>
+          <button type="button" class="btn btn-secondary" id="metric-add-btn" disabled>追加</button>
+        </div>
+
+        <p id="metric-message" class="message" role="status"></p>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="metrics-close-btn">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="report.js"></script>
+
+    <!-- ============ アプリの使い方（全画面共通） ============ -->
+    <div class="modal-backdrop" id="manual-modal" hidden>
+      <div class="modal card manual-modal" role="dialog" aria-modal="true" aria-labelledby="manual-title">
+        <div class="manual-head">
+          <h3 class="modal-title" id="manual-title">アプリの使い方</h3>
+          <button type="button" class="btn btn-mini" id="manual-edit-btn" hidden>編集する</button>
+        </div>
+        <p class="manual-meta" id="manual-meta"></p>
+
+        <div class="manual-body" id="manual-body">読み込み中...</div>
+
+        <!-- 管理者だけが開ける編集欄 -->
+        <div class="manual-editor" id="manual-editor" hidden>
+          <textarea id="manual-editor-input" rows="16"
+                    placeholder="# 見出し&#10;- 箇条書き&#10;**強調**"></textarea>
+          <div class="manual-editor-actions">
+            <button type="button" class="btn btn-ghost" id="manual-cancel-btn">キャンセル</button>
+            <button type="button" class="btn btn-secondary" id="manual-save-btn">保存する</button>
+          </div>
+        </div>
+
+        <p id="manual-message" class="message" role="status"></p>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="manual-close-btn">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

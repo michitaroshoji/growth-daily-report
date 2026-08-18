@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>過去の日報 | Growth Daily Report</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- 全画面で同じ構成のヘッダー（src/report.html と揃えること） -->
+    <div class="topbar">
+      <header class="site-header">
+        <a class="logo logo-sm" href="report.html">Growth Daily Report</a>
+        <div class="nav">
+          <button type="button" class="btn btn-demo" id="manual-btn">💡 アプリの使い方</button>
+          <button type="button" class="btn btn-demo" id="demo-btn">📊 デモモードを見る</button>
+          <span class="user-chip" id="user-name"></span>
+          <button type="button" class="btn btn-ghost" id="logout-btn">ログアウト</button>
+        </div>
+      </header>
+
+      <nav class="mainnav" aria-label="画面切り替え">
+        <a class="navbtn" data-nav="list" href="list.html">過去の日報</a>
+        <a class="navbtn" data-nav="report" href="report.html">日報作成</a>
+        <a class="navbtn" data-nav="dashboard" href="report.html#dashboard">データ分析</a>
+      </nav>
+
+      <p class="demo-banner" id="demo-banner" hidden></p>
+    </div>
+
+    <main class="container">
+      <div class="list-header">
+        <h1 class="page-title">過去の日報</h1>
+
+        <div class="list-tools">
+          <input
+            type="text"
+            class="search-box"
+            id="search-box"
+            placeholder="キーワードで検索（実績・要因分析など）"
+            autocomplete="off"
+          />
+          <label class="filter">
+            <span>表示範囲</span>
+            <select id="scope-select">
+              <option value="mine">自分のみ</option>
+              <option value="all">全員</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-ghost" id="expand-btn">すべて開く</button>
+        </div>
+      </div>
+
+      <p id="message" class="message" role="status">読み込み中...</p>
+      <div id="report-list" class="report-list"></div>
+    </main>
+
+    <script type="module" src="list.js"></script>
+
+    <!-- ============ アプリの使い方（全画面共通） ============ -->
+    <div class="modal-backdrop" id="manual-modal" hidden>
+      <div class="modal card manual-modal" role="dialog" aria-modal="true" aria-labelledby="manual-title">
+        <div class="manual-head">
+          <h3 class="modal-title" id="manual-title">アプリの使い方</h3>
+          <button type="button" class="btn btn-mini" id="manual-edit-btn" hidden>編集する</button>
+        </div>
+        <p class="manual-meta" id="manual-meta"></p>
+
+        <div class="manual-body" id="manual-body">読み込み中...</div>
+
+        <!-- 管理者だけが開ける編集欄 -->
+        <div class="manual-editor" id="manual-editor" hidden>
+          <textarea id="manual-editor-input" rows="16"
+                    placeholder="# 見出し&#10;- 箇条書き&#10;**強調**"></textarea>
+          <div class="manual-editor-actions">
+            <button type="button" class="btn btn-ghost" id="manual-cancel-btn">キャンセル</button>
+            <button type="button" class="btn btn-secondary" id="manual-save-btn">保存する</button>
+          </div>
+        </div>
+
+        <p id="manual-message" class="message" role="status"></p>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="manual-close-btn">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

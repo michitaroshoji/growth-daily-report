@@ -1,0 +1,19 @@
+{
+  "name": "growth-daily-report",
+  "version": "1.0.0",
+  "description": "日報を通じて内省と個人の成長を促進する社内Webアプリ",
+  "private": true,
+  "scripts": {
+    "dev": "parcel src/index.html src/report.html src/list.html --port 1234",
+    "build": "parcel build src/index.html src/report.html src/list.html",
+    "clean": "rm -rf dist .parcel-cache"
+  },
+  "devDependencies": {
+    "buffer": "^6.0.3",
+    "parcel": "^2.13.3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "chart.js": "^4.5.1"
+  }
+}
