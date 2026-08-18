@@ -73,10 +73,10 @@ function main(user) {
   // 描画
   // ============================================================
   // ============================================================
-  // コピー用のインラインスタイル
+  // 画面とコピー用HTMLで共有するインラインスタイル
   //   クラス名はクリップボードに乗らない（貼り付け先に style.css は無い）。
-  //   アコーディオンの中身を選択して LINE WORKS のノートなどへ貼ったときに
-  //   色や太さを残したいので、この範囲だけは style 属性へ直接書く。
+  //   LINE WORKS のノートなどへ貼っても色や太さを残したいので、
+  //   バッジ・見出し・★の色は style 属性へ直接書く。
   //   ここを直したら screenshot で貼り付け後の見た目も見直すこと。
   // ============================================================
   const HEADING_STYLE =
@@ -206,13 +206,16 @@ function main(user) {
 
   // 達成率に応じた色。数字だけでなく色でも掴めるように。
   // 貼り付け先にはクラスが効かないので、同じ色を style 属性でも当てる
-  function taskMetricsStyle(reviews) {
+  function taskMetricsColor(reviews) {
     const stats = summarizeTasks(reviews);
-    const base = 'font-weight: bold; margin-top: 10px; margin-bottom: 0;';
-    if (!isAutoMetricVisible('carryover') || stats.total === 0) return base;
-    if (stats.rate >= 0.8) return `color: #059669; ${base}`;
-    if (stats.rate >= 0.5) return `color: #d97706; ${base}`;
-    return `color: #dc2626; ${base}`;
+    if (!isAutoMetricVisible('carryover') || stats.total === 0) return '';
+    if (stats.rate >= 0.8) return 'color: #059669;';
+    if (stats.rate >= 0.5) return 'color: #d97706;';
+    return 'color: #dc2626;';
+  }
+
+  function taskMetricsStyle(reviews) {
+    return `${taskMetricsColor(reviews)} font-weight: bold; margin-top: 10px; margin-bottom: 0;`;
   }
 
   // 見出し（閉じている時）に出す1行プレビュー
@@ -331,22 +334,86 @@ function main(user) {
   }
 
   // ============================================================
-  // 画面に見えているままの HTML
-  //   アコーディオンの中身をそのまま持っていく。装飾は style 属性で
-  //   書いてあるので、貼り付け先に style.css が無くても崩れない。
-  //   操作ボタン（コピー/編集/削除）は貼り付け先に要らないので外す。
+  // 貼り付け用の HTML
+  //   LINE WORKS のノートなどのエディタは、貼り付けた <div> や <p> を
+  //   そのまま「段落」として取り込み、エディタ側の段落マージンを当てる。
+  //   画面のDOM（項目ごとに div + p）をそのまま渡すと、この段落マージンが
+  //   積み重なって項目と項目の間が極端に空いてしまう。
+  //   そこで貼り付け用は段落を作らず、行の区切りは <br> だけにして、
+  //   装飾はインライン要素の style 属性だけで組み立てる。
+  //   並び順は text/plain 側（buildCopyText）と揃えること。
+  //   検索語の <mark> は貼り付け先に要らないので、DOMではなくデータから作る。
   // ============================================================
-  function buildCopyHtml(button) {
-    const body = button.closest('.acc-body');
-    if (!body) return '';
+  const COPY_HEADING_STYLE = 'color: #4b5563; font-weight: bold;';
 
-    const clone = body.cloneNode(true);
-    clone.querySelectorAll('.acc-actions').forEach((el) => el.remove());
+  // 改行だけ <br> にして、それ以外はエスケープする
+  function copyHtmlText(value) {
+    return escapeHtml(value).replace(/\n/g, '<br>');
+  }
+
+  function buildCopyHtml(report) {
+    // 1ブロック = 見出し1つ分。ブロックの間だけ空行を1つ入れる
+    const blocks = [];
+
+    // 1〜2行目の数値。貼り付け先のプレビューにここが出る
+    const headLines = [];
+    const metrics = taskMetricsLine(report);
+    if (metrics) {
+      headLines.push(
+        `<span style="${taskMetricsColor(report.reviews)} font-weight: bold;">${escapeHtml(
+          metrics
+        )}</span>`
+      );
+    }
+    const custom = customMetricsLine(report.daily_metrics);
+    if (custom) headLines.push(escapeHtml(custom));
+    if (headLines.length > 0) blocks.push(headLines.join('<br>'));
+
+    const section = (title, bodyHtml) => {
+      if (!bodyHtml) return;
+      blocks.push(`<span style="${COPY_HEADING_STYLE}">■ ${escapeHtml(title)}</span><br>${bodyHtml}`);
+    };
+
+    const textSection = (title, value) => {
+      if (value) section(title, copyHtmlText(value));
+    };
+
+    textSection('1. 業務実績', report.fact || FACT_FALLBACK);
+    textSection('2. 未達成・課題', report.problem);
+    textSection('3. 要因分析', report.why);
+
+    if (report.reviews && report.reviews.length > 0) {
+      const lines = report.reviews.map((r) => {
+        const head = `<span style="${badgeStyle(r.achievement)}">${escapeHtml(
+          r.achievement
+        )}</span>${escapeHtml(r.line_text)}`;
+        return r.reason
+          ? `${head}<br><span style="${REASON_STYLE}">　→ ${copyHtmlText(r.reason)}</span>`
+          : head;
+      });
+      section('前回宣言の振り返り', lines.join('<br>'));
+    }
+
+    textSection('4. 次回の宣言（次回のタスク）', report.commitment);
+    textSection('5. 改善の準備', report.action);
+    textSection('6. 学び・備考', report.insight);
+    textSection('7. 一言', report.one_word);
+
+    const ratings = report.pmv_ratings;
+    if (ratings && Object.keys(ratings).length > 0) {
+      // 全角スペースで区切る（HTMLの半角スペースと違って貼り付け先でも潰れない）
+      const stars = PMV_VALUES.filter((v) => ratings[v]).map(
+        (v) => `${escapeHtml(v)} ${starsHtml(ratings[v])}`
+      );
+      if (stars.length > 0) section('バリュー自己評価', stars.join('　　'));
+    }
 
     // charset を添えないと、貼り付け先によっては文字化けする
     return (
       '<meta charset="utf-8">' +
-      `<div style="font-family: sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b;">${clone.innerHTML}</div>`
+      '<div style="font-family: sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b;">' +
+      blocks.join('<br><br>') +
+      '</div>'
     );
   }
 
@@ -404,7 +471,7 @@ function main(user) {
     const report = reports.find((r) => r.id === button.dataset.copy);
     if (!report) return;
 
-    const ok = await copyToClipboard(buildCopyHtml(button), buildCopyText(report));
+    const ok = await copyToClipboard(buildCopyHtml(report), buildCopyText(report));
     const original = button.textContent;
     button.textContent = ok ? 'コピーしました' : 'コピーできませんでした';
     button.classList.toggle('is-copied', ok);
