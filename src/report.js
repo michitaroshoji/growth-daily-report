@@ -979,6 +979,8 @@ function main(user, writeUser, viewUser) {
       dashboardLoaded = true;
       // デモモード中は「デモ太郎」のデータで描く
       import('./dashboard.js').then((module) => module.initDashboard(viewUser));
+      // メモは見ているデータに関係なく、常にログイン中の本人のもの
+      import('./knowledge.js').then((module) => module.setupKnowledge(user));
     }
   }
 

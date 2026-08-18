@@ -22,7 +22,7 @@
       <nav class="mainnav" aria-label="画面切り替え">
         <a class="navbtn" data-nav="list" href="list.html">過去の日報</a>
         <a class="navbtn" data-nav="report" href="report.html">日報作成</a>
-        <a class="navbtn" data-nav="dashboard" href="report.html#dashboard">データ分析</a>
+        <a class="navbtn" data-nav="dashboard" href="report.html#dashboard">データ分析 / ナレッジ</a>
       </nav>
 
       <p class="demo-banner" id="demo-banner" hidden></p>
@@ -169,7 +169,7 @@
          ============================================================ -->
     <div id="panel-dashboard" class="dashboard" hidden>
       <div class="dash-head">
-        <h1 class="page-title">データ分析</h1>
+        <h1 class="page-title">データ分析 / ナレッジ</h1>
         <div class="list-tools">
           <label class="filter">
             <span>期間</span>
@@ -258,6 +258,26 @@
         </h2>
         <p class="hint">要因分析のテキスト・数値実績・バリュー評価の3つを突き合わせた分析結果です。</p>
         <div class="ai-list" id="ai-report"></div>
+      </section>
+
+      <!-- ===== ④ マイ・ナレッジ（個人メモ。日報とは別物） ===== -->
+      <section class="card">
+        <h2 class="section-title">
+          💡 マイ・ナレッジ（メモ）
+          <span class="title-note">自分だけが見られるメモ帳です</span>
+        </h2>
+        <textarea
+          id="knowledge-memo"
+          class="knowledge-memo"
+          rows="10"
+          placeholder="（例）〇〇の商談では△△の資料が刺さった。VBAの〇〇エラーは△△で解決できる、など自由にメモしてください。"
+        ></textarea>
+        <div class="knowledge-bar">
+          <p id="knowledge-status" class="message" role="status">読み込み中...</p>
+          <button type="button" class="btn btn-secondary" id="knowledge-save-btn" disabled>
+            保存する
+          </button>
+        </div>
       </section>
     </div>
 

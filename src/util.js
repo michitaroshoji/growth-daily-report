@@ -254,3 +254,29 @@ export function attachBulletAssist(textarea) {
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
+
+// ============================================================
+// トースト（画面下に数秒だけ出る通知）
+//   置き場所を各画面に用意させたくないので、要素はここで作って使い回す
+// ============================================================
+let toastEl = null;
+let toastTimer = null;
+
+export function showToast(text) {
+  if (!toastEl) {
+    toastEl = document.createElement('div');
+    toastEl.className = 'toast';
+    toastEl.setAttribute('role', 'status');
+    document.body.appendChild(toastEl);
+  }
+
+  toastEl.textContent = text;
+  toastEl.classList.remove('is-visible');
+  // 追加直後に is-visible を付けても遷移が始まらないので、
+  // 一度レイアウトを確定させてからクラスを足す（rAF に頼ると描画されない場面がある）
+  void toastEl.offsetWidth;
+  toastEl.classList.add('is-visible');
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('is-visible'), 2400);
+}

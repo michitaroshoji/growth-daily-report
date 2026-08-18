@@ -1673,3 +1673,55 @@ textarea.is-autoresize {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ============================================================
+   マイ・ナレッジ（メモ）
+   ============================================================ */
+.knowledge-memo {
+  min-height: 200px;
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.knowledge-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* 状態表示は左、ボタンは右。message の余白を打ち消しておく */
+.knowledge-bar .message {
+  margin: 0;
+  font-size: 12px;
+}
+
+.knowledge-bar .btn {
+  flex-shrink: 0;
+}
+
+/* ---------- トースト ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 12px);
+  background: #1e293b;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease-out, transform 0.18s ease-out;
+  z-index: 100;
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
