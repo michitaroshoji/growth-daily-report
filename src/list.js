@@ -72,41 +72,69 @@ function main(user) {
   // ============================================================
   // 描画
   // ============================================================
-  function achievementClass(value) {
-    if (value === '達成' || value === '達成できた') return 'tag tag-good';
-    if (value === '一部達成' || value === '一部できた') return 'tag tag-mid';
-    if (value === '未達成' || value === 'できなかった') return 'tag tag-bad';
-    if (value === '中止') return 'tag tag-off';
-    return 'tag';
+  // ============================================================
+  // コピー用のインラインスタイル
+  //   クラス名はクリップボードに乗らない（貼り付け先に style.css は無い）。
+  //   アコーディオンの中身を選択して LINE WORKS のノートなどへ貼ったときに
+  //   色や太さを残したいので、この範囲だけは style 属性へ直接書く。
+  //   ここを直したら screenshot で貼り付け後の見た目も見直すこと。
+  // ============================================================
+  const HEADING_STYLE =
+    'color: #4b5563; font-size: 0.95em; font-weight: bold; margin-top: 16px; margin-bottom: 8px;';
+
+  const BADGE_BASE = 'border-radius: 4px; padding: 2px 8px; font-size: 0.85em; margin-right: 8px;';
+
+  const BADGE_COLOR = {
+    達成: 'background-color: #d1fae5; color: #065f46;',
+    一部達成: 'background-color: #fef3c7; color: #92400e;',
+    未達成: 'background-color: #fee2e2; color: #991b1b;',
+    中止: 'background-color: #f3f4f6; color: #374151;',
+  };
+
+  // 行ごとの評価が無かった頃の集約表現。同じ色に寄せる
+  const BADGE_ALIAS = { 達成できた: '達成', 一部できた: '一部達成', できなかった: '未達成' };
+
+  const REASON_STYLE = 'color: #6b7280; font-size: 0.9em; margin: 2px 0 0 4px;';
+
+  function badgeStyle(value) {
+    const key = BADGE_ALIAS[value] || value;
+    const color = BADGE_COLOR[key] || 'background-color: #f3f4f6; color: #374151;';
+    return `${color} ${BADGE_BASE}`;
+  }
+
+  // 改行は <br> に変換して貼り付け先へ持っていく。
+  // white-space の指定は貼り付け先で落ちることがあり、落ちると全部1行に潰れてしまう
+  function richText(value, keyword) {
+    return highlight(value, keyword).replace(/\n/g, '<br>');
   }
 
   function renderItem(label, value, keyword) {
     if (!value) return '';
     return `
       <div class="report-item">
-        <p class="report-item-label">${label}</p>
-        <p class="report-item-text">${highlight(value, keyword)}</p>
+        <p class="report-item-label" style="${HEADING_STYLE}">${label}</p>
+        <p class="report-item-text">${richText(value, keyword)}</p>
       </div>`;
   }
 
   // 前回宣言の行ごとの振り返り
   function renderReviews(reviews, keyword) {
     if (!reviews || reviews.length === 0) return '';
+    // バッジと本文は同じ行に並べたいので、どちらもインライン要素にする。
+    // flex に頼ると貼り付け先で解除されて、バッジだけ別の行に落ちてしまう
     const lines = reviews
       .map(
         (r) => `
         <div class="review-line">
-          <span class="${achievementClass(r.achievement)}">${escapeHtml(r.achievement)}</span>
-          <div class="review-line-text">
-            ${highlight(r.line_text, keyword)}
-            ${r.reason ? `<p class="review-line-reason">${highlight(r.reason, keyword)}</p>` : ''}
-          </div>
+          <span style="${badgeStyle(r.achievement)}">${escapeHtml(r.achievement)}</span>
+          <span class="review-line-text">${highlight(r.line_text, keyword)}</span>
+          ${r.reason ? `<div class="review-line-reason" style="${REASON_STYLE}">${richText(r.reason, keyword)}</div>` : ''}
         </div>`
       )
       .join('');
     return `
       <div class="report-item">
-        <p class="report-item-label">前回宣言の振り返り</p>
+        <p class="report-item-label" style="${HEADING_STYLE}">前回宣言の振り返り</p>
         ${lines}
       </div>`;
   }
@@ -122,30 +150,31 @@ function main(user) {
     return `📊 ${parts.join(' ／ ')}`;
   }
 
-  // 画面では★を黄色、☆を薄いグレーで出す。
+  // ★を黄色、☆をグレーで出す。
   // ただし文字列としては「★★★☆☆」が続いていないと、選択してコピーしたときに
   // 崩れてしまうので、2つの span の間には改行も空白も入れないこと
   function starsHtml(score) {
     const filled = '★'.repeat(score);
     const empty = '☆'.repeat(5 - score);
-    return `<span class="stars-on">${filled}</span><span class="stars-off">${empty}</span>`;
+    return `<span style="color: #eab308;">${filled}</span><span style="color: #9ca3af;">${empty}</span>`;
   }
 
   function renderPmv(ratings) {
     if (!ratings || Object.keys(ratings).length === 0) return '';
-    const chips = PMV_VALUES.filter((v) => ratings[v])
+    // 横並びは inline-block + margin で作る（flex は貼り付け先で解除される）
+    const items = PMV_VALUES.filter((v) => ratings[v])
       .map(
         (v) =>
-          `<span class="chip">${escapeHtml(v)} <span class="chip-stars">${starsHtml(
+          `<span style="display: inline-block; margin-right: 16px;">${escapeHtml(v)} ${starsHtml(
             ratings[v]
-          )}</span></span>`
+          )}</span>`
       )
       .join('');
-    if (!chips) return '';
+    if (!items) return '';
     return `
       <div class="report-item">
-        <p class="report-item-label">バリュー自己評価</p>
-        <div class="chip-row">${chips}</div>
+        <p class="report-item-label" style="${HEADING_STYLE}">バリュー自己評価</p>
+        <p class="pmv-line">${items}</p>
       </div>`;
   }
 
@@ -175,13 +204,15 @@ function main(user) {
     return parts.join(' ｜ ');
   }
 
-  // 達成率に応じた色。数字だけでなく色でも掴めるように
-  function taskMetricsClass(reviews) {
+  // 達成率に応じた色。数字だけでなく色でも掴めるように。
+  // 貼り付け先にはクラスが効かないので、同じ色を style 属性でも当てる
+  function taskMetricsStyle(reviews) {
     const stats = summarizeTasks(reviews);
-    if (!isAutoMetricVisible('carryover') || stats.total === 0) return 'acc-metrics';
-    if (stats.rate >= 0.8) return 'acc-metrics is-good';
-    if (stats.rate >= 0.5) return 'acc-metrics is-mid';
-    return 'acc-metrics is-bad';
+    const base = 'font-weight: bold; margin-top: 10px; margin-bottom: 0;';
+    if (!isAutoMetricVisible('carryover') || stats.total === 0) return base;
+    if (stats.rate >= 0.8) return `color: #059669; ${base}`;
+    if (stats.rate >= 0.5) return `color: #d97706; ${base}`;
+    return `color: #dc2626; ${base}`;
   }
 
   // 見出し（閉じている時）に出す1行プレビュー
@@ -203,7 +234,7 @@ function main(user) {
           ${
             // 1〜2行目。コピー時に先頭へ来るよう、操作ボタンより前に置く
             taskMetricsLine(report)
-              ? `<p class="${taskMetricsClass(report.reviews)}">${escapeHtml(
+              ? `<p class="acc-metrics" style="${taskMetricsStyle(report.reviews)}">${escapeHtml(
                   taskMetricsLine(report)
                 )}</p>`
               : ''
@@ -299,17 +330,53 @@ function main(user) {
     return lines.join('\n');
   }
 
-  async function copyToClipboard(text) {
+  // ============================================================
+  // 画面に見えているままの HTML
+  //   アコーディオンの中身をそのまま持っていく。装飾は style 属性で
+  //   書いてあるので、貼り付け先に style.css が無くても崩れない。
+  //   操作ボタン（コピー/編集/削除）は貼り付け先に要らないので外す。
+  // ============================================================
+  function buildCopyHtml(button) {
+    const body = button.closest('.acc-body');
+    if (!body) return '';
+
+    const clone = body.cloneNode(true);
+    clone.querySelectorAll('.acc-actions').forEach((el) => el.remove());
+
+    // charset を添えないと、貼り付け先によっては文字化けする
+    return (
+      '<meta charset="utf-8">' +
+      `<div style="font-family: sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b;">${clone.innerHTML}</div>`
+    );
+  }
+
+  // text/html と text/plain の両方をクリップボードに載せる。
+  // リッチテキストエディタなら装飾つきで、メモ帳などなら素のテキストで貼られる
+  async function copyToClipboard(html, text) {
     // https と localhost では Clipboard API が使える
-    if (navigator.clipboard && window.isSecureContext) {
+    if (navigator.clipboard && window.ClipboardItem && window.isSecureContext) {
       try {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+          }),
+        ]);
         return true;
       } catch {
         // 権限が下りない場合は下の方法にフォールバックする
       }
     }
 
+    // 古い環境向け。copyイベントを横取りして、2つの形式を自分で書き込む
+    const onCopy = (event) => {
+      event.preventDefault();
+      event.clipboardData.setData('text/html', html);
+      event.clipboardData.setData('text/plain', text);
+    };
+    document.addEventListener('copy', onCopy);
+
+    // execCommand('copy') は選択範囲が無いと動かないので、見えない枠を選んでおく
     const area = document.createElement('textarea');
     area.value = text;
     area.setAttribute('readonly', '');
@@ -324,6 +391,7 @@ function main(user) {
     } catch {
       copied = false;
     }
+    document.removeEventListener('copy', onCopy);
     document.body.removeChild(area);
     return copied;
   }
@@ -336,7 +404,7 @@ function main(user) {
     const report = reports.find((r) => r.id === button.dataset.copy);
     if (!report) return;
 
-    const ok = await copyToClipboard(buildCopyText(report));
+    const ok = await copyToClipboard(buildCopyHtml(button), buildCopyText(report));
     const original = button.textContent;
     button.textContent = ok ? 'コピーしました' : 'コピーできませんでした';
     button.classList.toggle('is-copied', ok);

@@ -1227,18 +1227,6 @@ textarea.is-autoresize {
   overflow-wrap: anywhere;
 }
 
-.acc-metrics.is-good {
-  color: var(--success);
-}
-
-.acc-metrics.is-mid {
-  color: var(--warn);
-}
-
-.acc-metrics.is-bad {
-  color: var(--error);
-}
-
 /* 削除は取り消せないので、他の操作ボタンと色で区別する */
 .btn-danger {
   color: var(--error);
@@ -1286,11 +1274,10 @@ textarea.is-autoresize {
   overflow-wrap: anywhere;
 }
 
-/* 一覧の中の振り返り行 */
+/* 一覧の中の振り返り行。
+   バッジと本文を同じ行に流したいので flex は使わない（list.js のコメント参照）。
+   色・余白まわりは list.js が style 属性で当てている */
 .review-line {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
   padding: 4px 0;
   border-bottom: 1px dashed var(--border);
 }
@@ -1300,50 +1287,15 @@ textarea.is-autoresize {
 }
 
 .review-line-text {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
   font-size: 13px;
   overflow-wrap: anywhere;
 }
 
-.review-line-reason {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: pre-wrap;
-}
-
-/* 一覧の中の数値・PMV */
-.chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.chip {
-  background: #f1f5f9;
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 12px;
-}
-
-.chip strong {
+/* 一覧の中のバリュー自己評価。1行に横並びで流す */
+.pmv-line {
+  margin: 0;
   font-size: 13px;
-}
-
-.chip-stars {
-  letter-spacing: -1px;
-}
-
-/* 星は見た目だけ塗り分ける。文字は★☆のままなので、
-   コピーして貼り付ければ「★★★☆☆」というただの文字列になる */
-.stars-on {
-  color: #eab308;
-}
-
-.stars-off {
-  color: #d8dee8;
+  line-height: 1.9;
 }
 
 .mark {
