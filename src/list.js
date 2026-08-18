@@ -122,14 +122,23 @@ function main(user) {
     return `📊 ${parts.join(' ／ ')}`;
   }
 
+  // 画面では★を黄色、☆を薄いグレーで出す。
+  // ただし文字列としては「★★★☆☆」が続いていないと、選択してコピーしたときに
+  // 崩れてしまうので、2つの span の間には改行も空白も入れないこと
+  function starsHtml(score) {
+    const filled = '★'.repeat(score);
+    const empty = '☆'.repeat(5 - score);
+    return `<span class="stars-on">${filled}</span><span class="stars-off">${empty}</span>`;
+  }
+
   function renderPmv(ratings) {
     if (!ratings || Object.keys(ratings).length === 0) return '';
     const chips = PMV_VALUES.filter((v) => ratings[v])
       .map(
         (v) =>
-          `<span class="chip">${escapeHtml(v)} <span class="chip-stars">${'★'.repeat(
+          `<span class="chip">${escapeHtml(v)} <span class="chip-stars">${starsHtml(
             ratings[v]
-          )}${'☆'.repeat(5 - ratings[v])}</span></span>`
+          )}</span></span>`
       )
       .join('');
     if (!chips) return '';
@@ -252,9 +261,11 @@ function main(user) {
     const custom = customMetricsLine(report.daily_metrics);
     if (custom) lines.push(custom);
 
-    // 見出しと中身を続けて積む（空行は入れず、貼り付けたときに詰まった見た目にする）
+    // 見出しと中身を積む。ブロックの切れ目が分かるよう、
+    // 2つ目以降の大見出しの前には空行を1行入れる
     const section = (title, body) => {
       if (!body) return;
+      if (lines.length > 0) lines.push('');
       lines.push(`■ ${title}`, body);
     };
 

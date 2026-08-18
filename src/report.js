@@ -702,6 +702,43 @@ function main(user, writeUser, viewUser) {
   form.addEventListener('input', scheduleDraftSave);
   form.addEventListener('change', scheduleDraftSave);
 
+  // ============================================================
+  // 3-b. Enterキーの扱い
+  //   1行入力（<input>）でEnterを押すと、ブラウザ標準の挙動でフォームが
+  //   送信されてしまう。誤送信を止めたうえで、次の入力欄へ送る。
+  //   複数行の <textarea> は改行のままにしたいので対象外（次へはTabで移動）。
+  // ============================================================
+  const TEXT_INPUT_TYPES = ['text', 'number', 'date', 'email', 'password', 'search', 'tel', 'url'];
+
+  // 目に見えて操作できるものだけを移動先にする。
+  // バリュー自己評価の星は opacity:0 / 幅0の radio なので、ここで自然に外れる
+  function focusableFields() {
+    return [...form.querySelectorAll('input, textarea, select, button')].filter(
+      (el) => !el.disabled && (el.offsetWidth > 0 || el.offsetHeight > 0)
+    );
+  }
+
+  form.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    // 日本語入力の「変換確定」のEnterはここで拾わない（229は古いブラウザ向け）
+    if (event.isComposing || event.keyCode === 229) return;
+
+    const el = event.target;
+    if (el.tagName !== 'INPUT') return; // textarea は改行、ボタンは本来の動作のまま
+
+    event.preventDefault(); // ここで誤送信を止める
+
+    // ラジオなどは送信を止めるだけで、フォーカスは動かさない
+    if (!TEXT_INPUT_TYPES.includes(el.type)) return;
+
+    const fields = focusableFields();
+    const index = fields.indexOf(el);
+    if (index < 0) return;
+
+    const next = fields[index + 1];
+    if (next) next.focus();
+  });
+
   function showDraftBanner(draft) {
     const banner = document.getElementById('draft-banner');
     const savedAt = formatSavedAt(draft.savedAt);

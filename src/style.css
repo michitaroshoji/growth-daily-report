@@ -1333,8 +1333,17 @@ textarea.is-autoresize {
 }
 
 .chip-stars {
-  color: #f59e0b;
   letter-spacing: -1px;
+}
+
+/* 星は見た目だけ塗り分ける。文字は★☆のままなので、
+   コピーして貼り付ければ「★★★☆☆」というただの文字列になる */
+.stars-on {
+  color: #eab308;
+}
+
+.stars-off {
+  color: #d8dee8;
 }
 
 .mark {
