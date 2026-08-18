@@ -93,16 +93,27 @@ export function refreshAutoResize() {
 // タスク達成の集計
 //   達成 = 1 / 一部達成 = 0.5 / 未達成 = 0 として数える
 //   （進捗を達成率に反映させ、推移グラフが滞りにくいようにするため）
+//
+//   「中止」は“やらないと決めた”タスクなので、分母から丸ごと外す。
+//   達成率を下げも上げもしない扱いにする。
 // ============================================================
+export const CANCELLED = '中止';
+export const ACHIEVEMENTS = ['達成', '一部達成', '未達成', CANCELLED];
+
 const ACHIEVEMENT_WEIGHT = { 達成: 1, 一部達成: 0.5, 未達成: 0 };
 
 export function summarizeTasks(reviews) {
-  const rows = reviews || [];
-  const counts = { 達成: 0, 一部達成: 0, 未達成: 0 };
+  const all = reviews || [];
+  const counts = { 達成: 0, 一部達成: 0, 未達成: 0, [CANCELLED]: 0 };
   let score = 0;
 
-  rows.forEach((row) => {
+  all.forEach((row) => {
     if (row.achievement in counts) counts[row.achievement] += 1;
+  });
+
+  // 中止の行は集計対象から除く（未評価の行は「残りいくつ」を出すため分母に残す）
+  const rows = all.filter((row) => row.achievement !== CANCELLED);
+  rows.forEach((row) => {
     score += ACHIEVEMENT_WEIGHT[row.achievement] ?? 0;
   });
 
@@ -110,6 +121,7 @@ export function summarizeTasks(reviews) {
     total: rows.length,
     score, // 重み付けした達成数（例: 4.5）
     counts,
+    cancelled: counts[CANCELLED],
     rate: rows.length > 0 ? score / rows.length : null,
   };
 }

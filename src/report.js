@@ -18,6 +18,8 @@ import {
   cleanBulletText,
   summarizeTasks,
   trimDecimal,
+  ACHIEVEMENTS,
+  CANCELLED,
 } from './util.js';
 
 // 未ログインなら requireUser() が index.html へ飛ばす
@@ -62,8 +64,8 @@ function main(user, writeUser, viewUser) {
   const metricAddBtn = document.getElementById('metric-add-btn');
   const metricMessage = document.getElementById('metric-message');
 
-  const ACHIEVEMENTS = ['達成', '一部達成', '未達成'];
-  const SHORT_LABEL = { 達成: '達成', 一部達成: '一部', 未達成: '未達' };
+  // 選択肢は util.js を唯一の定義元にする（集計側と食い違わせないため）
+  const SHORT_LABEL = { 達成: '達成', 一部達成: '一部', 未達成: '未達', [CANCELLED]: '中止' };
   const INDENT_PX = 16; // 1段あたりの見た目のインデント幅
   const BULLET_FIELDS = ['fact', 'problem', 'why', 'commitment', 'action', 'insight'];
 
@@ -395,7 +397,8 @@ function main(user, writeUser, viewUser) {
     return '';
   }
 
-  // 「未達成 / 一部達成」の行だけ、要因分析の入力枠を出し入れする
+  // 「未達成 / 一部達成」の行だけ、要因分析の入力枠を出し入れする。
+  // 「中止」はやらないと決めたタスクなので、理由を聞かずにそのまま飛ばす
   function syncWhyBlocks() {
     commitLines.forEach((row, i) => {
       const state = lineStates[i];
@@ -869,7 +872,11 @@ function main(user, writeUser, viewUser) {
   function summarizeAchievement() {
     const leaves = leafIndexes();
     if (leaves.length === 0) return null;
-    const values = leaves.map((i) => lineStates[i].achievement);
+    // 中止は達成/未達成のどちらでもないので、集約の判断材料から外す
+    const values = leaves
+      .map((i) => lineStates[i].achievement)
+      .filter((v) => v !== CANCELLED);
+    if (values.length === 0) return null;
     if (values.every((v) => v === '達成')) return '達成できた';
     if (values.every((v) => v === '未達成')) return 'できなかった';
     return '一部できた';

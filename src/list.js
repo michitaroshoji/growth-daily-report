@@ -76,6 +76,7 @@ function main(user) {
     if (value === '達成' || value === '達成できた') return 'tag tag-good';
     if (value === '一部達成' || value === '一部できた') return 'tag tag-mid';
     if (value === '未達成' || value === 'できなかった') return 'tag tag-bad';
+    if (value === '中止') return 'tag tag-off';
     return 'tag';
   }
 
@@ -216,7 +217,8 @@ function main(user) {
             <button type="button" class="btn btn-ghost" data-copy="${report.id}">本文をコピー</button>
             ${
               canManageReport(user, report)
-                ? `<a class="btn btn-ghost" href="report.html?edit=${report.id}">この日報を編集する</a>`
+                ? `<a class="btn btn-ghost" href="report.html?edit=${report.id}">この日報を編集する</a>
+                   <button type="button" class="btn btn-ghost btn-danger" data-delete="${report.id}">削除</button>`
                 : ''
             }
           </div>
@@ -334,6 +336,45 @@ function main(user) {
     }, 1600);
   });
 
+  // 削除ボタン（本人と管理者にしか描画していないが、実際の防御はRLS側で行う）
+  listEl.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-delete]');
+    if (!button) return;
+
+    const report = reports.find((r) => r.id === button.dataset.delete);
+    if (!report) return;
+
+    // 取り消せない操作なので、必ず一度確認する
+    if (!window.confirm('本当にこの日報を削除しますか？')) return;
+
+    button.disabled = true;
+    button.textContent = '削除中...';
+
+    // 数値実績と振り返りは外部キーの on delete cascade で一緒に消える。
+    // .select() を付けて「実際に何行消えたか」を確認する
+    // （RLSで弾かれた場合はエラーではなく0件で返るため）
+    const { data, error } = await supabase
+      .from('daily_reports')
+      .delete()
+      .eq('id', report.id)
+      .select('id');
+
+    if (error || !data || data.length === 0) {
+      button.disabled = false;
+      button.textContent = '削除';
+      setMessage(
+        error
+          ? '削除に失敗しました: ' + error.message
+          : '削除できませんでした。この日報を削除する権限がありません。',
+        'error'
+      );
+      return;
+    }
+
+    await loadReports();
+    setMessage('日報を削除しました。', 'success');
+  });
+
   // 検索語で絞り込んで描画し直す
   function applyFilter() {
     const keyword = searchBox.value.trim();
@@ -378,8 +419,12 @@ function main(user) {
       .order('created_at', { ascending: false })
       .limit(100);
 
-    if (scopeSelect.value === 'mine') {
+    // 表示範囲：自分のデータ / 全員のデータ / 特定のユーザー（user:<id>）
+    const scope = scopeSelect.value;
+    if (scope === 'mine') {
       query = query.eq('user_id', viewUser.id);
+    } else if (scope.startsWith('user:')) {
+      query = query.eq('user_id', scope.slice(5));
     }
 
     const { data, error } = await query;
@@ -423,6 +468,24 @@ function main(user) {
     applyFilter();
   }
 
+  // 投稿ユーザーの選択肢を「自分のデータ / 全員のデータ」の後ろに足す。
+  // ここで失敗しても一覧そのものは見せたいので、握りつぶしてログだけ残す
+  async function loadUserOptions() {
+    const { data, error } = await supabase.from('users').select('id, name').order('name');
+    if (error) {
+      console.error('ユーザー一覧の取得に失敗しました', error);
+      return;
+    }
+
+    (data || []).forEach((row) => {
+      if (!row.name) return;
+      const option = document.createElement('option');
+      option.value = `user:${row.id}`;
+      option.textContent = row.name;
+      scopeSelect.appendChild(option);
+    });
+  }
+
   // ============================================================
   // イベント
   // ============================================================
@@ -454,11 +517,12 @@ function main(user) {
     viewUser = await resolveViewUser(user);
     showDemoBanner(viewUser);
 
-    // デモ中は「自分のみ」の意味が変わるので、選択肢の表示も合わせる
+    // デモ中は「自分のデータ」の意味が変わるので、選択肢の表示も合わせる
     if (viewUser.isDemo) {
-      scopeSelect.options[0].textContent = `${viewUser.name}のみ`;
+      scopeSelect.options[0].textContent = `${viewUser.name}のデータ`;
     }
 
+    await loadUserOptions();
     loadReports();
   })();
 }

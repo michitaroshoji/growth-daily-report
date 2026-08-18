@@ -42,9 +42,10 @@
           />
           <label class="filter">
             <span>表示範囲</span>
+            <!-- ユーザーごとの選択肢は list.js が public.users から作って足す -->
             <select id="scope-select">
-              <option value="mine">自分のみ</option>
-              <option value="all">全員</option>
+              <option value="mine">自分のデータ</option>
+              <option value="all">全員のデータ</option>
             </select>
           </label>
           <button type="button" class="btn btn-ghost" id="expand-btn">すべて開く</button>

@@ -718,6 +718,17 @@ textarea.is-autoresize {
   background: #fef2f2;
 }
 
+/* 中止：やらないと決めた行。達成/未達成のどちらでもないので彩度を落とす */
+.commit-line[data-state='中止'] {
+  border-left-color: var(--text-muted);
+  background: #f8fafc;
+}
+
+.commit-line[data-state='中止'] .commit-line-text {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
 .commit-line-text {
   margin: 0;
   flex: 1;
@@ -770,6 +781,11 @@ textarea.is-autoresize {
 
 .seg-btn.is-active[data-value='未達成'] {
   background: var(--error);
+  color: #fff;
+}
+
+.seg-btn.is-active[data-value='中止'] {
+  background: var(--text-muted);
   color: #fff;
 }
 
@@ -1223,6 +1239,17 @@ textarea.is-autoresize {
   color: var(--error);
 }
 
+/* 削除は取り消せないので、他の操作ボタンと色で区別する */
+.btn-danger {
+  color: var(--error);
+  border-color: #fecaca;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
 /* コピー完了のフィードバック */
 .acc-actions .is-copied {
   background: #d1fae5;
@@ -1339,6 +1366,12 @@ textarea.is-autoresize {
 .tag-bad {
   background: #fee2e2;
   color: var(--error);
+}
+
+/* 中止。過去日報の一覧で、未達成と見間違えないように無彩色にする */
+.tag-off {
+  background: #e2e8f0;
+  color: var(--text-muted);
 }
 
 /* ---------- メッセージ ---------- */
