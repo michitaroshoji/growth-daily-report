@@ -179,18 +179,13 @@ function main(user) {
   }
 
   // 本文の先頭に置く自動算出値の1行。
-  //   例) 🏆タスク達成率: 88% (3.5/4) ｜ 📝本日消化: 5件
-  // 中身を全選択してチャットへ貼ったとき、この行が1行目に来るようにする
+  //   例) 📝本日消化: 5件 ｜ 🏆前日タスク達成率: 88% (3.5/4)
+  // 中身を全選択してチャットへ貼ったとき、この行が1行目に来るようにする。
+  // その日の成果である「本日消化」を先に置き、前日ぶんの達成率は後ろに回す
   function taskMetricsLine(report) {
     const parts = [];
 
-    // 数値実績の設定でオフにした項目は、画面にもコピー文にも出さない
-    const stats = summarizeTasks(report.reviews);
-    if (isAutoMetricVisible('carryover') && stats.total > 0) {
-      const percent = Math.round(stats.rate * 100);
-      parts.push(`🏆 タスク達成率: ${percent}% (${trimDecimal(stats.score)}/${stats.total})`);
-    }
-
+    // 数値実績の設定でオフにした項目は、画面にもコピー文にも出さない。
     // 保存済みの自動算出値。旧データは未記録なので、その場合は出さない
     if (
       isAutoMetricVisible('today') &&
@@ -198,6 +193,13 @@ function main(user) {
       report.today_task_count !== undefined
     ) {
       parts.push(`📝 本日消化: ${report.today_task_count}件`);
+    }
+
+    // 前日の宣言に対する達成率。当日ぶんと取り違えられないよう「前日」を付ける
+    const stats = summarizeTasks(report.reviews);
+    if (isAutoMetricVisible('carryover') && stats.total > 0) {
+      const percent = Math.round(stats.rate * 100);
+      parts.push(`🏆 前日タスク達成率: ${percent}% (${trimDecimal(stats.score)}/${stats.total})`);
     }
 
     // 両方オフ（または該当データなし）なら行そのものを出さない

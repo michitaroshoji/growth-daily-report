@@ -9,7 +9,7 @@ const STORAGE_KEY = 'gdr_auto_metrics';
 const DEFAULTS = { carryover: true, today: true };
 
 export const AUTO_METRICS = [
-  { key: 'carryover', label: '🏆 引き継ぎタスク達成率' },
+  { key: 'carryover', label: '🏆 前日タスク達成率' },
   { key: 'today', label: '📝 今日のタスク総件数' },
 ];
 
