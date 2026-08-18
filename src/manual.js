@@ -77,6 +77,9 @@ export function setupManual(user) {
 
   function openModal() {
     modal.hidden = false;
+    // 開いている間は後ろのページを固定する。
+    // そうしないと編集中にホイールを回したとき、モーダルではなく背景が動く
+    document.body.classList.add('modal-open');
     setMessage('', null);
     showEditor(false);
     load();
@@ -84,6 +87,7 @@ export function setupManual(user) {
 
   function closeModal() {
     modal.hidden = true;
+    document.body.classList.remove('modal-open');
   }
 
   openBtn.addEventListener('click', openModal);
@@ -100,6 +104,9 @@ export function setupManual(user) {
     showEditor(true);
     setMessage('Markdownで書けます（# 見出し / - 箇条書き / **強調**）。', null);
     editorInput.focus();
+    // 長い本文だと末尾にカーソルが飛ぶので、先頭から編集できるよう戻す
+    editorInput.setSelectionRange(0, 0);
+    editorInput.scrollTop = 0;
   });
 
   cancelBtn.addEventListener('click', () => {

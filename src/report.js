@@ -1007,8 +1007,11 @@ function main(user, writeUser, viewUser) {
 
   // 1〜6の入力欄に階層的箇条書きアシストを付ける（7は自由記述なので対象外）
   BULLET_FIELDS.forEach((id) => attachBulletAssist(document.getElementById(id)));
-  // 入力量に応じて伸びるようにする
-  document.querySelectorAll('textarea').forEach(attachAutoResize);
+  // 入力量に応じて伸びるようにする。
+  // マニュアルの編集欄はモーダルの高さに収める側なので、ここでは伸ばさない
+  document
+    .querySelectorAll('textarea:not(#manual-editor-input)')
+    .forEach(attachAutoResize);
 
   renderPmv();
   syncAddButton();

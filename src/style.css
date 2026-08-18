@@ -435,6 +435,15 @@ textarea.is-autoresize {
   flex-direction: column;
 }
 
+/* 見出し・メッセージ・フッターは縮めない。
+   縮むと編集中に「保存する」が枠の外へ押し出されてしまう */
+.manual-head,
+.manual-meta,
+#manual-message,
+.manual-modal .modal-footer {
+  flex-shrink: 0;
+}
+
 .manual-head {
   display: flex;
   align-items: center;
@@ -450,6 +459,7 @@ textarea.is-autoresize {
 
 .manual-body {
   flex: 1;
+  min-height: 0; /* これが無いと中身の高さぶん伸びてスクロールしない */
   overflow-y: auto;
   margin-top: 12px;
   font-size: 13.5px;
@@ -517,16 +527,29 @@ textarea.is-autoresize {
   color: var(--primary);
 }
 
+/* 編集欄。textarea を余った高さいっぱいに広げ、
+   本文が長くなっても伸びるのは textarea の中のスクロールだけにする */
 .manual-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   margin-top: 12px;
 }
 
-.manual-editor textarea {
+/* .is-autoresize（高さをJSが伸ばす指定）に詳細度で勝たせる */
+.manual-editor textarea,
+.manual-editor textarea.is-autoresize {
+  flex: 1; /* flex-basis: 0 なので、JSが入れる height より優先される */
+  min-height: 120px;
+  overflow-y: auto;
+  resize: none;
   font-size: 13px;
   line-height: 1.6;
 }
 
 .manual-editor-actions {
+  flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -1047,6 +1070,8 @@ textarea.is-autoresize {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 画面より高いモーダルは、背景ごとスクロールして下まで見せる */
+  overflow-y: auto;
   padding: 20px;
   z-index: 50;
 }
@@ -1054,8 +1079,16 @@ textarea.is-autoresize {
 .modal {
   width: 100%;
   max-width: 420px;
-  margin-bottom: 0;
+  /* auto マージンで中央寄せ。align-items: center と違って、
+     画面より高いときに上側がはみ出して掴めなくなることがない */
+  margin: auto;
   padding: 18px 20px;
+}
+
+/* モーダルを開いている間は後ろのページを動かさない
+   （編集中にホイールを回すと後ろが流れてしまうため） */
+body.modal-open {
+  overflow: hidden;
 }
 
 .modal-title {
