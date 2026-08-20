@@ -6,7 +6,7 @@
 
 | ファイル | 画面 | 内容 |
 | --- | --- | --- |
-| `src/index.html` | 簡易ログイン | ユーザーをプルダウンで選んでログイン |
+| `src/index.html` | ログイン | Googleログイン、またはメールアドレス＋パスワードでログイン |
 | `src/report.html` | 日報作成 | 前回の宣言の振り返り + 本日分6項目 |
 | `src/list.html` | 過去日報一覧 | 新しい順にカード表示（自分のみ／全員 切替） |
 
@@ -16,9 +16,46 @@
 
 1. https://supabase.com にログインし、New project を作成
 2. 左メニュー **SQL Editor** を開く
-3. `supabase/schema.sql` の中身を全部コピーして貼り付け、**Run**
+3. `supabase/` の .sql を**次の順番で**貼り付けて **Run**（1ファイルずつ、上から順に）
 
-### 2. .env に接続情報を書く
+   | 順 | ファイル | 内容 |
+   | --- | --- | --- |
+   | 1 | `schema.sql` | users / daily_reports とインデックス |
+   | 2 | `schema_v2.sql` | PMV評価・カスタム数値評価・宣言の行ごと評価 |
+   | 3 | `schema_v3.sql` | report_date の整備 |
+   | 4 | `schema_v4.sql` | 7.一言 と自動算出タスク実績の列 |
+   | 5 | `schema_v5_auth.sql` | **Supabase Auth 対応。全許可ポリシーを撤去して本番向けRLSに置き換える** |
+   | 6 | `schema_v6_admin.sql` | 管理者判定 `is_admin()` と daily_reports のポリシー |
+   | 7 | `schema_v7_manual.sql` | 「アプリの使い方」マニュアル（manuals） |
+   | 8 | `schema_v8_demo_write.sql` | 管理者が他ユーザー名義の数値項目を扱えるようにする |
+   | 9 | `schema_v9_cancelled.sql` | タスク評価に「中止」を追加 |
+   | 10 | `schema_v10_knowledge.sql` | マイ・ナレッジ（knowledge_memos） |
+
+   `schema.sql` だけでは認証まわりのポリシーが入りません（`schema.sql` と `schema_v2.sql` の
+   RLSは anon 全許可のままです）。**必ず `schema_v5_auth.sql` 以降まで流してください。**
+   各ファイルは**上から順に1回ずつ流す前提**です。`schema_v5_auth.sql` 以降を適用済みのDBに
+   `schema.sql` / `schema_v2.sql` を流し直すと、`mvp_users_all` などの anon 全許可ポリシーが
+   復活して `public.users` が匿名キーから読み書きできる状態に戻ります
+   （`revoke all ... from anon` があるのは daily_reports / user_metrics_settings / manuals /
+   knowledge_memos の4テーブルだけで、`public.users` にはありません）。
+   さらに `schema.sql` 末尾の `on conflict (name) do nothing` は、`schema_v5_auth.sql` が
+   `users_name_key` の一意制約を外しているためエラー（42P10）になります。
+   流し直しが必要なときは `schema_v5_auth.sql` 以降を再度流してください。
+
+   ※ `supabase/migrate_user_a.sql` はセットアップ用ではありません。旧「ユーザーA」名義の
+   既存データを自分のアカウントへ移したいときだけ、中身を読んだうえで実行してください。
+
+### 2. ログイン方法を有効にする
+
+Supabase ダッシュボードの **Authentication** で、使うログイン方法を設定する。
+
+- **Google ログイン** … Providers で Google を有効化し、URL Configuration の
+  **Redirect URLs** にアプリの `report.html` の URL を登録する
+  （認証後の戻り先。開発なら `http://localhost:1234/report.html`）
+- **メール＋パスワード** … Email プロバイダを有効化し、ダッシュボードの Users から
+  アカウントを作る（アプリ側に新規登録画面はありません）
+
+### 3. .env に接続情報を書く
 
 Supabase の **Project Settings > API** から2つの値をコピーし、`.env` に貼り付ける。
 
@@ -29,7 +66,7 @@ SUPABASE_ANON_KEY=eyJhbGciOi...
 
 ※ `.env` を編集したら開発サーバーを再起動すること（Parcel はビルド時に値を埋め込むため）。
 
-### 3. 起動
+### 4. 起動
 
 ```bash
 npm install     # 初回のみ
@@ -44,7 +81,19 @@ npm run dev     # http://localhost:1234 が開発サーバー
 npm run build   # dist/ に出力
 ```
 
-## 注意（MVP時点の割り切り）
+公開先: https://growth-daily-report.vercel.app
 
-- 本格的な認証はなく、ユーザー選択のみ（`localStorage` に保持）。
-- RLS は anon キーで全許可の設定。**社外に公開する用途では使わないこと。**
+## 認証と権限
+
+- 認証は **Supabase Auth** を使う（`src/login.js`）。社内は Google ログイン、
+  社外向けデモはメールアドレス＋パスワード。ログイン状態の判定は `src/session.js`。
+- **未ログイン（anon）では日報を読むことも書くこともできません。**
+  `schema_v5_auth.sql` で全許可ポリシーを削除し、以降のポリシーはすべて `to authenticated`。
+  主要なテーブルは anon からテーブル権限自体も剥がしてある（`revoke all ... from anon`）。
+- ログイン済みユーザーの権限
+  - 日報の**閲覧**は全員分
+  - **作成・更新・削除**は自分の日報のみ
+  - 数値評価の設定・マイ・ナレッジ（メモ）は自分のものだけ
+- 管理者は全員の日報を編集・削除でき、マニュアルも更新できる。管理者のメールアドレスは
+  `src/permissions.js` の `ADMIN_EMAILS` と、DB側の `public.is_admin()`
+  （`schema_v6_admin.sql`）の**両方に同じ値**を書く必要がある。
