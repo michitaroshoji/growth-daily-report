@@ -101,50 +101,64 @@
         </div>
       </section>
 
-      <!-- ============ 2〜6 ============ -->
+      <!-- ============ 2. 未達成・課題 ============ -->
       <section class="card">
-        <label class="field">
-          <span class="field-label">2. 未達成・課題</span>
-          <textarea id="problem" rows="3" placeholder="できなかったこと、うまくいかなかったことは？"></textarea>
-        </label>
+        <h2 class="section-title">
+          <span class="badge">2</span><label for="problem">未達成・課題</label>
+        </h2>
+        <textarea id="problem" rows="3" placeholder="できなかったこと、うまくいかなかったことは？"></textarea>
+      </section>
 
-        <!-- 3. 未達成/一部達成にした宣言がここへ自動で転記される -->
-        <div class="field">
-          <span class="field-label">3. 要因分析</span>
-          <div class="why-dynamic" id="why-dynamic"></div>
-          <textarea
-            id="why"
-            rows="3"
-            placeholder="その他の要因分析。「なぜ？」を3回深掘りしましょう"
-          ></textarea>
-        </div>
+      <!-- ============ 3. 要因分析（未達成/一部達成にした宣言が自動で転記される） ============ -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="badge">3</span><label for="why">要因分析</label>
+        </h2>
+        <div class="why-dynamic" id="why-dynamic"></div>
+        <textarea
+          id="why"
+          rows="3"
+          placeholder="その他の要因分析。「なぜ？」を3回深掘りしましょう"
+        ></textarea>
+      </section>
 
-        <label class="field">
-          <span class="field-label">4. 次回の宣言（次回のタスク）</span>
-          <textarea
-            id="commitment"
-            rows="5"
-            placeholder="次回までにやることを箇条書きで。&#10;Shift+Enterで子タスクにすると、次回は末端のタスクだけを評価します。"
-          ></textarea>
-          <span class="hint">
-            子を持つ行は「見出し」として扱われ、次回は最小単位のタスクにだけ評価ボタンが出ます。
-          </span>
-        </label>
+      <!-- ============ 4. 次回の宣言 ============ -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="badge">4</span><label for="commitment">次回の宣言（次回のタスク）</label>
+        </h2>
+        <textarea
+          id="commitment"
+          rows="5"
+          placeholder="次回までにやることを箇条書きで。&#10;Shift+Enterで子タスクにすると、次回は末端のタスクだけを評価します。"
+        ></textarea>
+        <span class="hint">
+          子を持つ行は「見出し」として扱われ、次回は最小単位のタスクにだけ評価ボタンが出ます。
+        </span>
+      </section>
 
-        <label class="field">
-          <span class="field-label">5. 改善の準備</span>
-          <textarea id="action" rows="3" placeholder="宣言を実行するために、今日のうちに準備することは？"></textarea>
-        </label>
+      <!-- ============ 5. 改善の準備 ============ -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="badge">5</span><label for="action">改善の準備</label>
+        </h2>
+        <textarea id="action" rows="3" placeholder="宣言を実行するために、今日のうちに準備することは？"></textarea>
+      </section>
 
-        <label class="field">
-          <span class="field-label">6. 学び・備考</span>
-          <textarea id="insight" rows="3" placeholder="今日得た学び、共有したいこと、相談したいこと"></textarea>
-        </label>
+      <!-- ============ 6. 学び・備考 ============ -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="badge">6</span><label for="insight">学び・備考</label>
+        </h2>
+        <textarea id="insight" rows="3" placeholder="今日得た学び、共有したいこと、相談したいこと"></textarea>
+      </section>
 
-        <label class="field field-last">
-          <span class="field-label">7. 一言（フリーコメント）</span>
-          <textarea id="one_word" rows="2" placeholder="ひとことどうぞ。感想・雑談・今日の気分など何でも"></textarea>
-        </label>
+      <!-- ============ 7. 一言（フリーコメント） ============ -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="badge">7</span><label for="one_word">一言（フリーコメント）</label>
+        </h2>
+        <textarea id="one_word" rows="2" placeholder="ひとことどうぞ。感想・雑談・今日の気分など何でも"></textarea>
       </section>
 
       <!-- ============ PMV（バリュー）自己評価 ============ -->
