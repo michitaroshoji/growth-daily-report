@@ -1066,7 +1066,6 @@ function main(user, writeUser, viewUser) {
   // 管理者閲覧モードでは、自分の設定も含めて保存につながる操作を出さない
   if (!adminView) setupProfile(user);
   document.getElementById('logout-btn').addEventListener('click', signOut);
-  if (admin) document.getElementById('admin-nav').hidden = false;
 
   // 1〜6の入力欄に階層的箇条書きアシストを付ける（7は自由記述なので対象外）
   BULLET_FIELDS.forEach((id) => attachBulletAssist(document.getElementById(id)));
