@@ -602,9 +602,37 @@ textarea.is-autoresize {
 }
 
 .release-item-title {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: 14px;
   overflow-wrap: anywhere;
+}
+
+/* 見出しの行ごと開閉ボタンにする（三角だけだと押しどころが小さすぎる） */
+.release-item-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.release-item-caret {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+
+.release-item-toggle[aria-expanded='true'] .release-item-caret {
+  transform: rotate(90deg);
 }
 
 .release-item-actions {
@@ -614,7 +642,7 @@ textarea.is-autoresize {
 }
 
 .release-item-date {
-  margin: 2px 0 0;
+  margin: 0 0 2px;
   font-size: 11.5px;
   color: var(--text-muted);
 }
