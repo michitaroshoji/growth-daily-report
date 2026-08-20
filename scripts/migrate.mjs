@@ -19,6 +19,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SQL_DIR = join(ROOT, 'supabase');
@@ -51,6 +52,32 @@ const BASELINE_TABLES = [
   { table: 'public.daily_reports', file: 'schema.sql' },
   { table: 'public.knowledge_memos', file: 'schema_v10_knowledge.sql' },
 ];
+
+// ============================================================
+// TLS
+// ============================================================
+
+// Supabase の証明書は Supabase 自身の CA が発行しているため、
+// OS の信頼済み CA だけでは «self-signed certificate in certificate chain» になる。
+//
+// 【検証を切らない】
+// ここを rejectUnauthorized: false にすると通信は暗号化されるが、
+// 相手が本物かを確かめないまま **DBのパスワードを送る**ことになる。
+// CA 証明書を渡して、正しく検証する。
+//
+// 証明書の置き場所は SUPABASE_CA_CERT で指定する。
+// 未設定なら ~/.supabase/prod-ca-2021.crt を見る。
+// どちらも無ければ、検証つきのまま接続を試みて、失敗したら理由を出す
+// （黙って検証を切らない）。
+function sslOptions() {
+  const path =
+    process.env.SUPABASE_CA_CERT ||
+    join(homedir(), '.supabase', 'prod-ca-2021.crt');
+
+  if (!existsSync(path)) return true;
+
+  return { ca: readFileSync(path, 'utf8'), rejectUnauthorized: true };
+}
 
 // ============================================================
 // ファイルの並び替え（ここが辞書順だと v10 が v2 より前に来てしまう）
@@ -240,9 +267,8 @@ async function main() {
   const { default: pg } = await import('pg');
   const client = new pg.Client({
     connectionString: dbUrl,
-    // sslmode が接続文字列に無いときだけ SSL を有効にする
-    // （証明書の検証で弾かれる場合は接続文字列に ?sslmode=no-verify を付ける）
-    ssl: /[?&]sslmode=/.test(dbUrl) ? undefined : true,
+    // sslmode が接続文字列に指定されていれば、そちらに従う
+    ssl: /[?&]sslmode=/.test(dbUrl) ? undefined : sslOptions(),
   });
 
   console.log(`接続先: ${hostOf(dbUrl)}`);
