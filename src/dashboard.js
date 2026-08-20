@@ -7,11 +7,15 @@
 import Chart from 'chart.js/auto';
 import { supabase, isConfigured } from './supabase.js';
 import { escapeHtml, PMV_VALUES, summarizeTasks } from './util.js';
-
-// 数値実績とは別枠で出す、振り返りから計算する系列
-const TASK_TOTAL = '__task_total__';
-const TASK_RATE = '__task_rate__';
-const TASK_TODAY = '__task_today__';
+import { getAutoMetricSettings, getDashboardMetric, setDashboardMetric } from './settings.js';
+import {
+  dashboardMetricOptions,
+  metricOptionsHtml,
+  resolveMetricValue,
+  TASK_RATE,
+  TASK_TODAY,
+  TASK_TOTAL,
+} from './dashboard-metrics.js';
 
 // 検証済みの配色（白背景で 明度帯 / 彩度 / CVD分離 / コントラスト 全てPASS）
 const SERIES_BLUE = '#2a78d6';
@@ -181,23 +185,15 @@ export async function initDashboard(user) {
       );
     });
 
-    // 数値項目：登録中の設定と、過去に記録された項目名を統合する
-    // （設定を消した項目でも、過去データが見られるようにするため）
-    const recorded = new Set();
-    allDays.forEach((day) => day.metrics.forEach((_, name) => recorded.add(name)));
-
+    // 数値項目：日報記入画面の「1.5 数値実績」に入力欄が出ているものだけを並べる。
+    // 設定から消した項目は、過去データが残っていても選択肢には出さない
     const { data: settings } = await supabase
       .from('user_metrics_settings')
       .select('name')
       .eq('user_id', user.id)
       .order('sort_order', { ascending: true });
 
-    const ordered = [];
-    (settings || []).forEach((s) => ordered.push(s.name));
-    [...recorded].sort().forEach((name) => {
-      if (!ordered.includes(name)) ordered.push(name);
-    });
-    metricNames = ordered;
+    metricNames = (settings || []).map((s) => s.name);
 
     return true;
   }
@@ -667,6 +663,7 @@ export async function initDashboard(user) {
 
   rangeSelect.addEventListener('change', renderAll);
   metricSelect.addEventListener('change', () => {
+    setDashboardMetric(metricSelect.value); // 次に開いたときも同じ項目から見られるように
     renderMetric();
     renderAiReport(); // 「強みの発見」は選択中の項目を参照するので一緒に更新する
   });
@@ -677,19 +674,11 @@ export async function initDashboard(user) {
 
   buildMonthOptions();
 
-  // 数値実績と、振り返りから計算するタスク分析を分けて並べる
-  const metricOptions = metricNames.length
-    ? `<optgroup label="数値実績">${metricNames
-        .map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
-        .join('')}</optgroup>`
-    : '';
-  metricSelect.innerHTML =
-    metricOptions +
-    `<optgroup label="タスク分析">
-       <option value="${TASK_TOTAL}">引き継ぎタスク総数</option>
-       <option value="${TASK_RATE}">引き継ぎタスク達成率（%）</option>
-       <option value="${TASK_TODAY}">今日のタスク総件数</option>
-     </optgroup>`;
+  // 数値実績と、振り返りから計算するタスク分析を分けて並べる。
+  // 自動算出のオン/オフは日報記入画面の「項目を設定」と同じものを見る
+  const metricOptions = dashboardMetricOptions(metricNames, getAutoMetricSettings());
+  metricSelect.innerHTML = metricOptionsHtml(metricOptions);
+  metricSelect.value = resolveMetricValue(getDashboardMetric(), metricOptions);
 
   if (allDays.length === 0) {
     showLoadError('まだ日報がありません。日報を書くとここに分析が表示されます。');
