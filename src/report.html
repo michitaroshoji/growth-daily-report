@@ -12,6 +12,7 @@
       <header class="site-header">
         <a class="logo logo-sm" href="report.html">Growth Daily Report</a>
         <div class="nav">
+          <button type="button" class="btn btn-demo" id="release-btn">🆕 バージョンアップ共有</button>
           <button type="button" class="btn btn-demo" id="manual-btn">💡 アプリの使い方</button>
           <button type="button" class="btn btn-demo" id="demo-btn">📊 デモモードを見る</button>
           <!-- 押すとプロフィール / 設定モーダルが開く -->
@@ -325,6 +326,38 @@
     </div>
 
     <script type="module" src="report.js"></script>
+
+    <!-- ============ バージョンアップ共有（全画面共通） ============ -->
+    <div class="modal-backdrop" id="release-modal" hidden>
+      <div class="modal card release-modal" role="dialog" aria-modal="true" aria-labelledby="release-modal-title">
+        <div class="release-head">
+          <h3 class="modal-title" id="release-modal-title">バージョンアップ共有</h3>
+          <!-- 追加ボタンは管理者にだけ出す -->
+          <button type="button" class="btn btn-mini" id="release-add-btn" hidden>＋ 新規お知らせ追加</button>
+        </div>
+
+        <div class="release-list" id="release-list">読み込み中...</div>
+
+        <!-- 管理者だけが開ける追加 / 編集欄 -->
+        <div class="release-editor" id="release-editor" hidden>
+          <p class="setting-group-title" id="release-editor-title">新規お知らせ追加</p>
+          <input type="text" id="release-title-input" maxlength="120"
+                 placeholder="タイトル（例: v1.1.0 部署管理機能の追加）" />
+          <textarea id="release-content-input" rows="10"
+                    placeholder="# 見出し&#10;- 変更点&#10;**強調**"></textarea>
+          <div class="release-editor-actions">
+            <button type="button" class="btn btn-ghost" id="release-cancel-btn">キャンセル</button>
+            <button type="button" class="btn btn-secondary" id="release-save-btn">保存する</button>
+          </div>
+        </div>
+
+        <p id="release-message" class="message" role="status"></p>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="release-close-btn">閉じる</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ============ アプリの使い方（全画面共通） ============ -->
     <div class="modal-backdrop" id="manual-modal" hidden>

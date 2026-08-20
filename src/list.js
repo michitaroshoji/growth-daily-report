@@ -3,6 +3,7 @@ import { requireUser, signOut } from './session.js';
 import { setActiveNav } from './nav.js';
 import { resolveViewUser, setupDemoToggle, showDemoBanner } from './demo.js';
 import { setupManual } from './manual.js';
+import { setupReleaseNotes } from './release-notes.js';
 import { canManageReport, canSeeOthers } from './permissions.js';
 import { fetchDepartments } from './departments.js';
 import { setupProfile } from './profile.js';
@@ -739,6 +740,7 @@ function main(user) {
   setActiveNav('list');
   setupDemoToggle();
   setupManual(user);
+  setupReleaseNotes(user);
   document.getElementById('user-name').textContent = user.name;
   setupProfile(user);
   document.getElementById('logout-btn').addEventListener('click', signOut);
