@@ -4,8 +4,8 @@
   "description": "日報を通じて内省と個人の成長を促進する社内Webアプリ",
   "private": true,
   "scripts": {
-    "dev": "parcel src/index.html src/report.html src/list.html --port 1234",
-    "build": "parcel build src/index.html src/report.html src/list.html",
+    "dev": "parcel src/index.html src/report.html src/list.html src/admin.html --port 1234",
+    "build": "parcel build src/index.html src/report.html src/list.html src/admin.html",
     "clean": "rm -rf dist .parcel-cache"
   },
   "devDependencies": {

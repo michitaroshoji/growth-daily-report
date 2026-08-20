@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>管理者画面 | Growth Daily Report</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- 管理者だけが開く画面なので、ヘッダーからは「デモモード」「使い方」を外している。
+         それ以外の並び（ロゴ / ユーザー名 / ログアウト）は他画面と同じ -->
+    <div class="topbar">
+      <header class="site-header">
+        <a class="logo logo-sm" href="report.html">Growth Daily Report</a>
+        <div class="nav">
+          <span class="user-chip" id="user-name"></span>
+          <button type="button" class="btn btn-ghost" id="logout-btn">ログアウト</button>
+        </div>
+      </header>
+
+      <nav class="mainnav" aria-label="画面切り替え">
+        <a class="navbtn" data-nav="list" href="list.html">過去の日報</a>
+        <a class="navbtn" data-nav="report" href="report.html">日報作成</a>
+        <a class="navbtn" data-nav="dashboard" href="report.html#dashboard">データ分析 / ナレッジ</a>
+        <a class="navbtn" data-nav="admin" href="admin.html">⚙ 管理</a>
+      </nav>
+    </div>
+
+    <main class="container admin-container">
+      <h1 class="page-title">管理者画面</h1>
+
+      <!-- ユーザー管理 / 部署管理 の切り替え -->
+      <div class="admin-tabs" role="tablist" aria-label="管理項目の切り替え">
+        <button type="button" class="admin-tab is-active" id="tab-users"
+                data-tab="users" role="tab" aria-selected="true" aria-controls="panel-users">
+          ユーザー管理
+        </button>
+        <button type="button" class="admin-tab" id="tab-departments"
+                data-tab="departments" role="tab" aria-selected="false" aria-controls="panel-departments">
+          部署管理
+        </button>
+      </div>
+
+      <p id="admin-message" class="message" role="status">読み込み中...</p>
+
+      <!-- ============ ユーザー管理 ============ -->
+      <section class="card" id="panel-users" role="tabpanel" aria-labelledby="tab-users">
+        <p class="hint">
+          名前を押すと、そのユーザーの個人データ分析画面を「管理者閲覧モード」で開きます。
+        </p>
+        <div class="admin-scroll">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th scope="col">名前</th>
+                <th scope="col">メールアドレス</th>
+                <th scope="col">所属部署</th>
+                <th scope="col">権限</th>
+                <th scope="col">ステータス</th>
+                <th scope="col">操作</th>
+              </tr>
+            </thead>
+            <tbody id="user-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============ 部署管理 ============ -->
+      <section class="card" id="panel-departments" role="tabpanel" aria-labelledby="tab-departments" hidden>
+        <p class="hint">部署に所属しているユーザーが1人でもいる間は、その部署を削除できません。</p>
+
+        <div class="dept-add-row">
+          <input type="text" id="dept-name" maxlength="40" placeholder="部署名（例: 営業部）" />
+          <button type="button" class="btn btn-secondary" id="dept-add-btn" disabled>追加</button>
+        </div>
+
+        <p id="dept-message" class="message" role="status"></p>
+
+        <ul class="dept-list" id="dept-list"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="admin.js"></script>
+  </body>
+</html>

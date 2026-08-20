@@ -1,5 +1,5 @@
 import { supabase, isConfigured } from './supabase.js';
-import { getCurrentUser } from './session.js';
+import { getCurrentUser, FROZEN_MESSAGE } from './session.js';
 
 const button = document.getElementById('google-btn');
 const message = document.getElementById('message');
@@ -51,13 +51,23 @@ async function init() {
   }
 
   const user = await getCurrentUser();
+  if (user && user.isFrozen) {
+    // 凍結中のセッションが残っていても入れない。セッションごと切ってから案内する
+    await supabase.auth.signOut();
+    setBusy(false);
+    setMessage(FROZEN_MESSAGE, 'error');
+    return;
+  }
   if (user) {
     location.replace('report.html');
     return;
   }
 
   setBusy(false);
-  setMessage('', null);
+
+  // requireUser() が凍結を見つけて戻してきたときは、その理由を出す
+  const frozen = new URLSearchParams(location.search).has('frozen');
+  setMessage(frozen ? FROZEN_MESSAGE : '', frozen ? 'error' : null);
 }
 
 button.addEventListener('click', async () => {

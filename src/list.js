@@ -3,7 +3,8 @@ import { requireUser, signOut } from './session.js';
 import { setActiveNav } from './nav.js';
 import { resolveViewUser, setupDemoToggle, showDemoBanner } from './demo.js';
 import { setupManual } from './manual.js';
-import { canManageReport, isAdmin } from './permissions.js';
+import { canManageReport, canSeeOthers, isAdmin } from './permissions.js';
+import { setupProfile } from './profile.js';
 import { isAutoMetricVisible } from './settings.js';
 import { escapeHtml, formatYmd, PMV_VALUES, summarizeTasks, trimDecimal } from './util.js';
 
@@ -657,8 +658,12 @@ function main(user) {
   setActiveNav('list');
   setupDemoToggle();
   setupManual(user);
-  if (isAdmin(user)) document.body.classList.add('is-admin');
+  if (isAdmin(user)) {
+    document.body.classList.add('is-admin');
+    document.getElementById('admin-nav').hidden = false;
+  }
   document.getElementById('user-name').textContent = user.name;
+  setupProfile(user);
   document.getElementById('logout-btn').addEventListener('click', signOut);
 
   (async () => {
@@ -670,7 +675,18 @@ function main(user) {
       scopeSelect.options[0].textContent = `${viewUser.name}のデータ`;
     }
 
-    await loadUserOptions();
+    // 制限付きユーザーは自分の日報しか読めない（RLSでも弾かれる）ので、
+    // 「全員のデータ」と個人ごとの選択肢はそもそも出さない
+    if (canSeeOthers(user)) {
+      await loadUserOptions();
+    } else {
+      [...scopeSelect.options].forEach((option) => {
+        if (option.value !== 'mine') option.remove();
+      });
+      scopeSelect.value = 'mine';
+      scopeSelect.disabled = true;
+    }
+
     loadReports();
   })();
 }
