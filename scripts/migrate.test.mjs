@@ -59,12 +59,17 @@ test('版番号が重複していたら止まる', () => {
   );
 });
 
-test('初回実行では v11・v12・v13 の3つだけが、この順に流れる', () => {
+test('初回実行では v11〜v14 の4つだけが、この順に流れる', () => {
   const { migrations } = listMigrations(sqlFiles());
 
   assert.deepEqual(
     pendingMigrations(migrations, BASELINE).map((m) => m.file),
-    ['schema_v11_departments.sql', 'schema_v12_restricted_demo.sql', 'schema_v13_release_notes.sql']
+    [
+      'schema_v11_departments.sql',
+      'schema_v12_restricted_demo.sql',
+      'schema_v13_release_notes.sql',
+      'schema_v14_hidden_users.sql',
+    ]
   );
 });
 

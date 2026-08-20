@@ -139,6 +139,28 @@ export function departmentName(userRow) {
 }
 
 // ============================================================
+// 非表示ユーザー（管理画面のステータスで「非表示」にした人）
+//   過去の日報では、選択肢からも一覧からも外す。
+//   凍結（is_frozen）とは別物なので、そちらには触らない
+// ============================================================
+
+// 対象ユーザーの選択肢に出す人。名前が未設定の人と非表示の人は外す。
+// 自分自身（selfId）だけは、非表示にされていても選べるままにする
+// （自分の過去の日報まで開けなくなってしまうため）
+export function visibleMembers(userRows, selfId) {
+  return (userRows || []).filter(
+    (row) => row && row.name && (!row.is_hidden || row.id === selfId)
+  );
+}
+
+// 「全社」「全員」で日報を引くときに、取得対象から外すユーザーID
+export function hiddenMemberIds(userRows, selfId) {
+  return (userRows || [])
+    .filter((row) => row && row.is_hidden && row.id !== selfId)
+    .map((row) => row.id);
+}
+
+// ============================================================
 // 階層つき箇条書きのパース
 // ============================================================
 

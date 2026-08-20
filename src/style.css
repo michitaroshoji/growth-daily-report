@@ -2031,6 +2031,12 @@ button.user-chip:hover {
   color: var(--text);
 }
 
+.admin-status-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .admin-row-actions {
   display: flex;
   gap: 6px;
