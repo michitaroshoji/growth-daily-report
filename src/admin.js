@@ -1,6 +1,6 @@
 // ============================================================
 // 管理者画面（/admin）
-//   ユーザー管理タブ … 名前・所属部署・権限・凍結・削除
+//   ユーザー管理タブ … 名前・所属部署・権限・凍結・非表示・削除
 //   部署管理タブ     … 部署の追加・改名・削除（在籍者がいる間は削除不可）
 //
 //   管理者以外がURLを直接開いても入れない（DB側も is_admin() で弾いている）。
@@ -76,7 +76,7 @@ function main(user) {
     const [{ data, error }, departmentRows] = await Promise.all([
       supabase
         .from('users')
-        .select('id, name, email, role, department_id, is_frozen')
+        .select('id, name, email, role, department_id, is_frozen, is_hidden')
         .order('name'),
       fetchDepartments(),
     ]);
@@ -136,8 +136,12 @@ function main(user) {
             <td class="admin-email">${escapeHtml(row.email || '—')}</td>
             <td><select class="admin-select" data-action="department" aria-label="所属部署">${departmentOptions(row.department_id)}</select></td>
             <td><select class="admin-select" data-action="role" aria-label="権限">${roleOptions(row.role)}</select></td>
-            <td>
+            <td class="admin-status-cell">
               <span class="tag ${row.is_frozen ? 'tag-bad' : 'tag-good'}">${row.is_frozen ? '凍結' : '通常'}</span>
+              <select class="admin-select" data-action="visibility" aria-label="過去の日報での表示">
+                <option value="visible"${row.is_hidden ? '' : ' selected'}>通常</option>
+                <option value="hidden"${row.is_hidden ? ' selected' : ''}>非表示</option>
+              </select>
             </td>
             <td class="admin-row-actions">
               <button type="button" class="btn btn-mini" data-action="freeze"${isSelf ? ' disabled' : ''}>
@@ -261,6 +265,23 @@ function main(user) {
         setMessage('所属部署を変更しました。', 'success');
       } else {
         select.value = row.department_id || '';
+      }
+      return;
+    }
+
+    // 過去の日報での表示。非表示にすると、対象ユーザーの選択肢からも
+    // 「全社 / 全員」の一覧からも、その人の日報が出なくなる
+    if (select.dataset.action === 'visibility') {
+      const next = select.value === 'hidden';
+      if (await updateUser(id, { is_hidden: next })) {
+        setMessage(
+          next
+            ? `「${row.name}」を過去の日報に表示しないようにしました。`
+            : `「${row.name}」を過去の日報に表示するようにしました。`,
+          'success'
+        );
+      } else {
+        select.value = row.is_hidden ? 'hidden' : 'visible';
       }
       return;
     }

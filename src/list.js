@@ -12,9 +12,11 @@ import {
   departmentName,
   escapeHtml,
   formatYmd,
+  hiddenMemberIds,
   PMV_VALUES,
   summarizeTasks,
   trimDecimal,
+  visibleMembers,
 } from './util.js';
 
 init();
@@ -42,7 +44,8 @@ function main(user) {
   let reports = []; // 取得済みの日報（検索はこの配列に対してフロントで行う）
   let viewUser = user; // 「誰のデータを見ているか」。デモモード中は デモ太郎
   let departments = []; // 対象集団（部署）の選択肢
-  let members = []; // 対象ユーザーの元になる全ユーザー [{ id, name, department_id }]
+  let members = []; // 対象ユーザーの元になる全ユーザー（非表示の人は入らない）
+  let hiddenIds = []; // 管理画面で「非表示」にされたユーザーID。取得から丸ごと外す
 
   function setMessage(text, type) {
     message.textContent = text || '';
@@ -602,6 +605,10 @@ function main(user) {
         return;
       }
       query = query.in('user_id', ids);
+    } else if (hiddenIds.length > 0) {
+      // 「全社 / 全員」。非表示のユーザーが書いた日報は取得の時点で外す
+      // （100件の上限があるので、取ってから捨てるのでは表示数が減ってしまう）
+      query = query.not('user_id', 'in', `(${hiddenIds.join(',')})`);
     }
 
     const { data, error } = await query;
@@ -683,13 +690,14 @@ function main(user) {
   async function loadFilterOptions() {
     const [departmentRows, { data, error }] = await Promise.all([
       fetchDepartments(),
-      supabase.from('users').select('id, name, department_id').order('name'),
+      supabase.from('users').select('id, name, department_id, is_hidden').order('name'),
     ]);
 
     if (error) console.error('ユーザー一覧の取得に失敗しました', error);
 
     departments = departmentRows;
-    members = (data || []).filter((row) => row.name);
+    members = visibleMembers(data, viewUser.id);
+    hiddenIds = hiddenMemberIds(data, viewUser.id);
 
     departments.forEach((row) => {
       const option = document.createElement('option');
