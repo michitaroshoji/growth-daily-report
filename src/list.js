@@ -8,7 +8,14 @@ import { canManageReport, canSeeOthers } from './permissions.js';
 import { fetchDepartments } from './departments.js';
 import { setupProfile } from './profile.js';
 import { isAutoMetricVisible } from './settings.js';
-import { escapeHtml, formatYmd, PMV_VALUES, summarizeTasks, trimDecimal } from './util.js';
+import {
+  departmentName,
+  escapeHtml,
+  formatYmd,
+  PMV_VALUES,
+  summarizeTasks,
+  trimDecimal,
+} from './util.js';
 
 init();
 
@@ -57,6 +64,7 @@ function main(user) {
       report.insight,
       report.one_word,
       report.users ? report.users.name : '',
+      departmentName(report.users),
       formatYmd(report.report_date),
     ];
     (report.reviews || []).forEach((r) => parts.push(r.line_text, r.reason, r.achievement));
@@ -236,12 +244,15 @@ function main(user) {
 
   function renderAccordion(report, keyword, open) {
     const name = report.users ? report.users.name : '';
+    // 所属部署は投稿者名に添えるだけ。未設定の人は今までどおり名前だけになる
+    const department = name ? departmentName(report.users) : '';
     return `
       <details class="report-acc" ${open ? 'open' : ''}>
         <summary>
           <span class="acc-caret">▶</span>
           <span class="acc-date">${escapeHtml(formatYmd(report.report_date))}</span>
           ${name ? `<span class="acc-author">${escapeHtml(name)}</span>` : ''}
+          ${department ? `<span class="tag acc-dept">${escapeHtml(department)}</span>` : ''}
           <span class="acc-summary">${escapeHtml(summaryPreview(report))}</span>
         </summary>
         <div class="acc-body">
@@ -571,7 +582,7 @@ function main(user) {
 
     let query = supabase
       .from('daily_reports')
-      .select('*, users(name), daily_metrics(*)')
+      .select('*, users(name, departments(name)), daily_metrics(*)')
       .order('report_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(100);

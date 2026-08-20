@@ -131,6 +131,13 @@ export function trimDecimal(value) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
+// 部署を埋め込んで取ってきたユーザー行（users(name, departments(name))）から部署名を取り出す。
+// 未所属の人や、部署を一緒に取っていない場合は空文字を返す
+export function departmentName(userRow) {
+  const department = userRow && userRow.departments;
+  return (department && department.name) || '';
+}
+
 // ============================================================
 // 階層つき箇条書きのパース
 // ============================================================
