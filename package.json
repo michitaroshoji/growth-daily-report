@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "parcel src/index.html src/report.html src/list.html src/admin.html --port 1234",
     "build": "parcel build src/index.html src/report.html src/list.html src/admin.html",
-    "clean": "rm -rf dist .parcel-cache"
+    "clean": "rm -rf dist .parcel-cache",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:migrate:dry": "node scripts/migrate.mjs --dry-run",
+    "test": "node --test \"scripts/*.test.mjs\""
   },
   "devDependencies": {
     "buffer": "^6.0.3",
-    "parcel": "^2.13.3"
+    "parcel": "^2.13.3",
+    "pg": "^8.23.0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
