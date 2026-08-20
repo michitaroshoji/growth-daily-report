@@ -33,6 +33,7 @@
    | 10 | `schema_v10_knowledge.sql` | マイ・ナレッジ（knowledge_memos） |
    | 11 | `schema_v11_departments.sql` | **部署（departments）と権限3階層。管理者判定を `users.role` に移す** |
    | 12 | `schema_v12_restricted_demo.sql` | 制限付きユーザーでもデモ用アカウント「デモ太郎」の日報だけは読めるようにする |
+   | 13 | `schema_v13_release_notes.sql` | バージョンアップ共有（release_notes）。閲覧は全員、投稿・編集・削除は管理者のみ |
 
    `schema.sql` だけでは認証まわりのポリシーが入りません（`schema.sql` と `schema_v2.sql` の
    RLSは anon 全許可のままです）。**必ず `schema_v5_auth.sql` 以降まで流してください。**
@@ -40,7 +41,7 @@
    `schema.sql` / `schema_v2.sql` を流し直すと、`mvp_users_all` などの anon 全許可ポリシーが
    復活して `public.users` が匿名キーから読み書きできる状態に戻ります
    （`revoke all ... from anon` があるのは daily_reports / user_metrics_settings / manuals /
-   knowledge_memos の4テーブルだけで、`public.users` にはありません）。
+   knowledge_memos / release_notes の5テーブルだけで、`public.users` にはありません）。
    さらに `schema.sql` 末尾の `on conflict (name) do nothing` は、`schema_v5_auth.sql` が
    `users_name_key` の一意制約を外しているためエラー（42P10）になります。
    流し直しが必要なときは `schema_v5_auth.sql` 以降を再度流してください。
@@ -97,7 +98,7 @@ npm run build   # dist/ に出力
   - 日報の**閲覧**は全員分
   - **作成・更新・削除**は自分の日報のみ
   - 数値評価の設定・マイ・ナレッジ（メモ）は自分のものだけ
-- 管理者は全員の日報を編集・削除でき、マニュアルも更新できる。
+- 管理者は全員の日報を編集・削除でき、マニュアルとバージョンアップ共有も更新できる。
 
 ### 権限3階層（`public.users.role`）
 
@@ -106,7 +107,7 @@ npm run build   # dist/ に出力
 
 | role | できること |
 | --- | --- |
-| `admin` | 全データのCRUD、マニュアル更新、`/admin`（管理者画面） |
+| `admin` | 全データのCRUD、マニュアル更新、バージョンアップ共有の投稿・編集・削除、`/admin`（管理者画面） |
 | `member` | 既定値。閲覧は全員分／作成・更新・削除は自分の分のみ |
 | `restricted` | 閲覧も**自分の日報だけ**（デモ用アカウントは例外）。書き込みは `member` と同じ |
 
@@ -116,6 +117,8 @@ npm run build   # dist/ に出力
 - `is_frozen = true`（凍結）のアカウントはログインできず、DB側でも書き込みが全て弾かれる。
 - 所属部署は本人がヘッダー右上のユーザー名 →「プロフィール / 設定」から変更できる。
   部署そのものの追加・改名・削除は管理者画面の部署管理タブから行う。
+- ヘッダーの「🆕 バージョンアップ共有」は更新履歴のモーダル。閲覧は全員できるが、
+  「新規お知らせ追加」「編集」「削除」は管理者にしか出さない（DB側もRLSで弾く）。
 - 管理者画面への入口は、同じモーダルの中の「⚙ 管理画面へ」だけ。
   ナビゲーションバーには並べない（管理者以外に存在を見せないため）。
 - `restricted` は過去の日報の絞り込み（対象集団・対象ユーザー）が自分に固定され、

@@ -3,6 +3,7 @@ import { requireUser, signOut } from './session.js';
 import { setActiveNav } from './nav.js';
 import { resolveViewUser, setupDemoToggle, showDemoBanner } from './demo.js';
 import { setupManual } from './manual.js';
+import { setupReleaseNotes } from './release-notes.js';
 import { setupProfile } from './profile.js';
 import { isAdmin } from './permissions.js';
 import { AUTO_METRICS, getAutoMetricSettings, setAutoMetricSetting } from './settings.js';
@@ -1070,9 +1071,9 @@ function main(user, writeUser, viewUser) {
   // 1〜6の入力欄に階層的箇条書きアシストを付ける（7は自由記述なので対象外）
   BULLET_FIELDS.forEach((id) => attachBulletAssist(document.getElementById(id)));
   // 入力量に応じて伸びるようにする。
-  // マニュアルの編集欄はモーダルの高さに収める側なので、ここでは伸ばさない
+  // マニュアル／バージョンアップ共有の編集欄はモーダルの高さに収める側なので、ここでは伸ばさない
   document
-    .querySelectorAll('textarea:not(#manual-editor-input)')
+    .querySelectorAll('textarea:not(#manual-editor-input):not(#release-content-input)')
     .forEach(attachAutoResize);
 
   renderPmv();
@@ -1084,6 +1085,7 @@ function main(user, writeUser, viewUser) {
   setupDemoToggle();
   if (!adminView) showDemoBanner(viewUser);
   setupManual(user);
+  setupReleaseNotes(user);
 
   // デモ名義で書くときは、保存先を取り違えないよう帯で明示する
   if (writeUser.id !== user.id) {
