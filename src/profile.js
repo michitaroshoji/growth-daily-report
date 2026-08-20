@@ -2,9 +2,10 @@
 // プロフィール / 設定モーダル
 //   ヘッダー右上のユーザー名を押すと開く。
 //   本人が変えられるのは「所属部署」だけ（権限・凍結は管理者画面から）。
+//   管理者向けの「管理画面へ」もここに置く（ナビゲーションバーには出さない）。
 // ============================================================
 import { supabase } from './supabase.js';
-import { roleLabel } from './permissions.js';
+import { isAdmin, roleLabel } from './permissions.js';
 import { fetchDepartments, fillDepartmentSelect } from './departments.js';
 
 export function setupProfile(user) {
@@ -19,6 +20,10 @@ export function setupProfile(user) {
   const saveBtn = document.getElementById('profile-save-btn');
   const closeBtn = document.getElementById('profile-close-btn');
   const messageEl = document.getElementById('profile-message');
+  const adminEl = document.getElementById('profile-admin');
+
+  // 管理画面への導線は管理者にだけ見せる（DB側も is_admin() で弾いている）
+  if (adminEl) adminEl.hidden = !isAdmin(user);
 
   let loaded = false;
   let savedDepartmentId = user.departmentId || '';

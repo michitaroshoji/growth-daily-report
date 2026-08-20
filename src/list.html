@@ -24,8 +24,6 @@
         <a class="navbtn" data-nav="list" href="list.html">過去の日報</a>
         <a class="navbtn" data-nav="report" href="report.html">日報作成</a>
         <a class="navbtn" data-nav="dashboard" href="report.html#dashboard">データ分析 / ナレッジ</a>
-        <!-- 管理者にだけ出す（表示の切り替えは isAdmin() を見て JS が行う） -->
-        <a class="navbtn" data-nav="admin" href="admin.html" id="admin-nav" hidden>⚙ 管理</a>
       </nav>
 
       <p class="demo-banner" id="demo-banner" hidden></p>
@@ -43,12 +41,20 @@
             placeholder="キーワードで検索（実績・要因分析など）"
             autocomplete="off"
           />
+          <!-- 対象集団 → 対象ユーザー の2段階で絞り込む（下は上の選択に連動する） -->
           <label class="filter">
-            <span>表示範囲</span>
-            <!-- ユーザーごとの選択肢は list.js が public.users から作って足す -->
-            <select id="scope-select">
-              <option value="mine">自分のデータ</option>
-              <option value="all">全員のデータ</option>
+            <span>対象集団</span>
+            <!-- 部署ごとの選択肢は list.js が departments から作って足す -->
+            <select id="dept-select">
+              <option value="all">全社</option>
+            </select>
+          </label>
+          <label class="filter">
+            <span>対象ユーザー</span>
+            <!-- 中身は list.js が「選ばれている部署の在籍者」で作り直す。
+                 読み込みが終わるまで幅が潰れないよう、既定の選択肢だけ置いておく -->
+            <select id="user-select">
+              <option value="all">全員</option>
             </select>
           </label>
           <button type="button" class="btn btn-ghost" id="expand-btn">すべて開く</button>
@@ -105,8 +111,14 @@
         </dl>
 
         <p class="setting-group-title">所属部署</p>
-        <p class="hint">選択肢は管理者が「管理」画面から登録します。</p>
+        <p class="hint">選択肢は管理者が管理画面から登録します。</p>
         <select id="profile-department" class="profile-department" aria-label="所属部署"></select>
+
+        <!-- 管理者にだけ出す。管理画面への入口はここだけで、ナビには並べない -->
+        <div class="profile-admin" id="profile-admin" hidden>
+          <p class="setting-group-title">管理</p>
+          <a class="btn btn-secondary" href="admin.html">⚙ 管理画面へ</a>
+        </div>
 
         <p id="profile-message" class="message" role="status"></p>
 

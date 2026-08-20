@@ -3,7 +3,8 @@ import { requireUser, signOut } from './session.js';
 import { setActiveNav } from './nav.js';
 import { resolveViewUser, setupDemoToggle, showDemoBanner } from './demo.js';
 import { setupManual } from './manual.js';
-import { canManageReport, canSeeOthers, isAdmin } from './permissions.js';
+import { canManageReport, canSeeOthers } from './permissions.js';
+import { fetchDepartments } from './departments.js';
 import { setupProfile } from './profile.js';
 import { isAutoMetricVisible } from './settings.js';
 import { escapeHtml, formatYmd, PMV_VALUES, summarizeTasks, trimDecimal } from './util.js';
@@ -18,7 +19,8 @@ async function init() {
 function main(user) {
   const listEl = document.getElementById('report-list');
   const message = document.getElementById('message');
-  const scopeSelect = document.getElementById('scope-select');
+  const deptSelect = document.getElementById('dept-select');
+  const userSelect = document.getElementById('user-select');
   const searchBox = document.getElementById('search-box');
   const expandBtn = document.getElementById('expand-btn');
 
@@ -26,8 +28,13 @@ function main(user) {
   // 数値実績だけで完結した日でも、貼り付けたテキストが空欄にならないようにする
   const FACT_FALLBACK = '（数値実績の業務に集中）';
 
+  // 2段階フィルターの「絞り込まない」を表す値。部署ID・ユーザーIDと衝突しない文字列
+  const ALL = 'all';
+
   let reports = []; // 取得済みの日報（検索はこの配列に対してフロントで行う）
   let viewUser = user; // 「誰のデータを見ているか」。デモモード中は デモ太郎
+  let departments = []; // 対象集団（部署）の選択肢
+  let members = []; // 対象ユーザーの元になる全ユーザー [{ id, name, department_id }]
 
   function setMessage(text, type) {
     message.textContent = text || '';
@@ -568,12 +575,21 @@ function main(user) {
       .order('created_at', { ascending: false })
       .limit(100);
 
-    // 表示範囲：自分のデータ / 全員のデータ / 特定のユーザー（user:<id>）
-    const scope = scopeSelect.value;
-    if (scope === 'mine') {
+    // 表示範囲：対象集団（部署）→ 対象ユーザー の2段階で絞り込む。
+    // 制限付きユーザーは選択に関わらず自分の分だけ。他人のIDは指定そのものをしない
+    if (!canSeeOthers(user)) {
       query = query.eq('user_id', viewUser.id);
-    } else if (scope.startsWith('user:')) {
-      query = query.eq('user_id', scope.slice(5));
+    } else if (userSelect.value !== ALL) {
+      query = query.eq('user_id', userSelect.value);
+    } else if (deptSelect.value !== ALL) {
+      const ids = membersInDepartment().map((row) => row.id);
+      // 在籍者が0人の部署。問い合わせても必ず0件なので、ここで打ち切る
+      if (ids.length === 0) {
+        reports = [];
+        applyFilter();
+        return;
+      }
+      query = query.in('user_id', ids);
     }
 
     const { data, error } = await query;
@@ -617,22 +633,81 @@ function main(user) {
     applyFilter();
   }
 
-  // 投稿ユーザーの選択肢を「自分のデータ / 全員のデータ」の後ろに足す。
-  // ここで失敗しても一覧そのものは見せたいので、握りつぶしてログだけ残す
-  async function loadUserOptions() {
-    const { data, error } = await supabase.from('users').select('id, name').order('name');
-    if (error) {
-      console.error('ユーザー一覧の取得に失敗しました', error);
-      return;
-    }
+  // ============================================================
+  // 2段階の絞り込み（対象集団 → 対象ユーザー）
+  // ============================================================
+  // 選ばれている対象集団に属するユーザー。「全社」なら全員
+  function membersInDepartment() {
+    if (deptSelect.value === ALL) return members;
+    return members.filter((row) => row.department_id === deptSelect.value);
+  }
 
-    (data || []).forEach((row) => {
-      if (!row.name) return;
+  // 対象ユーザーの選択肢を、選ばれている対象集団に合わせて作り直す。
+  // 部署を変えても同じ人を見続けられるよう、選択は残せるなら引き継ぐ
+  function renderUserOptions(preferredId) {
+    const department = departments.find((row) => row.id === deptSelect.value);
+    const rows = membersInDepartment();
+
+    userSelect.innerHTML = '';
+
+    const everyone = document.createElement('option');
+    everyone.value = ALL;
+    everyone.textContent = department ? `${department.name}全員` : '全員';
+    userSelect.appendChild(everyone);
+
+    rows.forEach((row) => {
       const option = document.createElement('option');
-      option.value = `user:${row.id}`;
-      option.textContent = row.name;
-      scopeSelect.appendChild(option);
+      option.value = row.id;
+      // 「自分のデータ」を探しやすくする（デモモード中は デモ太郎 が選ばれている）
+      option.textContent = row.id === user.id ? `${row.name}（自分）` : row.name;
+      userSelect.appendChild(option);
     });
+
+    userSelect.value = rows.some((row) => row.id === preferredId) ? preferredId : ALL;
+  }
+
+  // 対象集団・対象ユーザーの選択肢を作る。
+  // ここで失敗しても一覧そのものは見せたいので、握りつぶしてログだけ残す
+  async function loadFilterOptions() {
+    const [departmentRows, { data, error }] = await Promise.all([
+      fetchDepartments(),
+      supabase.from('users').select('id, name, department_id').order('name'),
+    ]);
+
+    if (error) console.error('ユーザー一覧の取得に失敗しました', error);
+
+    departments = departmentRows;
+    members = (data || []).filter((row) => row.name);
+
+    departments.forEach((row) => {
+      const option = document.createElement('option');
+      option.value = row.id;
+      option.textContent = row.name;
+      deptSelect.appendChild(option);
+    });
+
+    // 既定は今までと同じ「自分（デモモード中は デモ太郎）のデータ」
+    renderUserOptions(viewUser.id);
+  }
+
+  // 制限付きユーザーは自分の日報しか読めない（RLSでも弾かれる）。
+  // 他人を選ぶ余地が残らないよう、選択肢を自分だけにして両方とも非活性にする
+  function lockFiltersToSelf() {
+    deptSelect.innerHTML = '';
+    userSelect.innerHTML = '';
+
+    const onlyMe = document.createElement('option');
+    onlyMe.value = ALL;
+    onlyMe.textContent = '自分のみ';
+    deptSelect.appendChild(onlyMe);
+
+    const me = document.createElement('option');
+    me.value = viewUser.id;
+    me.textContent = viewUser.name;
+    userSelect.appendChild(me);
+
+    deptSelect.disabled = true;
+    userSelect.disabled = true;
   }
 
   // ============================================================
@@ -644,7 +719,13 @@ function main(user) {
     searchTimer = setTimeout(applyFilter, 180); // 入力のたびに描画し直さないよう少し待つ
   });
 
-  scopeSelect.addEventListener('change', loadReports);
+  // 対象集団を変えたら対象ユーザーの選択肢を作り直してから取り直す（カスケード）
+  deptSelect.addEventListener('change', () => {
+    renderUserOptions(userSelect.value);
+    loadReports();
+  });
+
+  userSelect.addEventListener('change', loadReports);
 
   expandBtn.addEventListener('click', () => {
     const items = [...listEl.querySelectorAll('.report-acc')];
@@ -658,10 +739,6 @@ function main(user) {
   setActiveNav('list');
   setupDemoToggle();
   setupManual(user);
-  if (isAdmin(user)) {
-    document.body.classList.add('is-admin');
-    document.getElementById('admin-nav').hidden = false;
-  }
   document.getElementById('user-name').textContent = user.name;
   setupProfile(user);
   document.getElementById('logout-btn').addEventListener('click', signOut);
@@ -670,21 +747,10 @@ function main(user) {
     viewUser = await resolveViewUser(user);
     showDemoBanner(viewUser);
 
-    // デモ中は「自分のデータ」の意味が変わるので、選択肢の表示も合わせる
-    if (viewUser.isDemo) {
-      scopeSelect.options[0].textContent = `${viewUser.name}のデータ`;
-    }
-
-    // 制限付きユーザーは自分の日報しか読めない（RLSでも弾かれる）ので、
-    // 「全員のデータ」と個人ごとの選択肢はそもそも出さない
     if (canSeeOthers(user)) {
-      await loadUserOptions();
+      await loadFilterOptions();
     } else {
-      [...scopeSelect.options].forEach((option) => {
-        if (option.value !== 'mine') option.remove();
-      });
-      scopeSelect.value = 'mine';
-      scopeSelect.disabled = true;
+      lockFiltersToSelf();
     }
 
     loadReports();

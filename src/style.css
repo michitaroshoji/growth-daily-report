@@ -1948,6 +1948,16 @@ button.user-chip:hover {
   color: var(--text);
 }
 
+/* 管理者だけに出る「管理画面へ」。所属部署の欄と間を空けて別のまとまりに見せる */
+.profile-admin {
+  margin-top: 14px;
+}
+
+.profile-admin .btn {
+  display: block;
+  text-align: center;
+}
+
 .modal-footer .btn + .btn {
   margin-left: 8px;
 }
