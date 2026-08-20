@@ -1375,6 +1375,12 @@ body.modal-open {
   flex-shrink: 0;
 }
 
+/* 投稿者名のとなりに詰めて出す所属部署（.tag と併用）。
+   未所属の人には出さないので、名前だけでも並びは崩れない */
+.acc-dept {
+  margin-left: -6px;
+}
+
 .acc-summary {
   flex: 1;
   min-width: 0;
