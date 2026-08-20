@@ -1758,3 +1758,219 @@ body.modal-open {
   opacity: 1;
   transform: translate(-50%, 0);
 }
+
+/* ============================================================
+   管理者画面（/admin）とプロフィール設定
+   ============================================================ */
+
+/* ヘッダーのユーザー名。押すとプロフィールモーダルが開くのでボタンにしてある。
+   見た目は今まで通りのチップのまま（.user-chip の色・角丸を引き継ぐ） */
+button.user-chip {
+  border: 1px solid transparent;
+  font-family: inherit;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+button.user-chip:hover {
+  border-color: #bfdbfe;
+}
+
+.admin-container {
+  max-width: 1100px;
+}
+
+/* ---------- ユーザー管理 / 部署管理 の切り替え ---------- */
+.admin-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.admin-tab {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 16px;
+  cursor: pointer;
+}
+
+.admin-tab:hover {
+  color: var(--text);
+}
+
+.admin-tab.is-active {
+  background: #eff6ff;
+  color: var(--primary-dark);
+  border-color: #bfdbfe;
+}
+
+/* ---------- ユーザー一覧 ---------- */
+.admin-scroll {
+  overflow-x: auto;
+  margin-top: 8px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-table th,
+.admin-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 7px 8px;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.admin-table thead th {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-email {
+  color: var(--text-muted);
+}
+
+.admin-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-name-input {
+  width: 150px;
+}
+
+.admin-select {
+  font-size: 13px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.admin-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* 見た目はリンク、実体はボタン（名前を押して分析画面へ飛ぶ） */
+.linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.linklike:hover {
+  color: var(--primary-dark);
+}
+
+/* ---------- 部署管理 ---------- */
+.dept-add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.dept-add-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.dept-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dept-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
+.dept-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.dept-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ---------- プロフィール / 設定モーダル ---------- */
+.profile-list {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 10px 0 4px;
+  font-size: 13px;
+}
+
+.profile-list dt {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.profile-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-department {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.modal-footer .btn + .btn {
+  margin-left: 8px;
+}
+
+/* ---------- 管理者閲覧モードの帯 ---------- */
+.demo-banner.is-admin-view {
+  background: #fee2e2;
+  border-top-color: #fca5a5;
+  color: #991b1b;
+}
+
+.admin-view-back {
+  margin-left: 12px;
+  color: inherit;
+  font-weight: 700;
+}
+
+@media (max-width: 620px) {
+  .admin-tabs {
+    flex-wrap: wrap;
+  }
+
+  .dept-item {
+    flex-wrap: wrap;
+  }
+}

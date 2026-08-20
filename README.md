@@ -9,6 +9,7 @@
 | `src/index.html` | ログイン | Googleログイン、またはメールアドレス＋パスワードでログイン |
 | `src/report.html` | 日報作成 | 前回の宣言の振り返り + 本日分6項目 |
 | `src/list.html` | 過去日報一覧 | 新しい順にカード表示（自分のみ／全員 切替） |
+| `src/admin.html` | 管理者画面 (`/admin`) | ユーザー管理（部署・権限・凍結・削除）と部署管理。管理者のみ |
 
 ## セットアップ手順
 
@@ -30,6 +31,7 @@
    | 8 | `schema_v8_demo_write.sql` | 管理者が他ユーザー名義の数値項目を扱えるようにする |
    | 9 | `schema_v9_cancelled.sql` | タスク評価に「中止」を追加 |
    | 10 | `schema_v10_knowledge.sql` | マイ・ナレッジ（knowledge_memos） |
+   | 11 | `schema_v11_departments.sql` | **部署（departments）と権限3階層。管理者判定を `users.role` に移す** |
 
    `schema.sql` だけでは認証まわりのポリシーが入りません（`schema.sql` と `schema_v2.sql` の
    RLSは anon 全許可のままです）。**必ず `schema_v5_auth.sql` 以降まで流してください。**
@@ -94,6 +96,24 @@ npm run build   # dist/ に出力
   - 日報の**閲覧**は全員分
   - **作成・更新・削除**は自分の日報のみ
   - 数値評価の設定・マイ・ナレッジ（メモ）は自分のものだけ
-- 管理者は全員の日報を編集・削除でき、マニュアルも更新できる。管理者のメールアドレスは
-  `src/permissions.js` の `ADMIN_EMAILS` と、DB側の `public.is_admin()`
-  （`schema_v6_admin.sql`）の**両方に同じ値**を書く必要がある。
+- 管理者は全員の日報を編集・削除でき、マニュアルも更新できる。
+
+### 権限3階層（`public.users.role`）
+
+`schema_v11_departments.sql` 以降、権限は**メールアドレスの決め打ちではなく `users.role`** で決まる。
+値を変えるのは管理者画面（`/admin`）のユーザー管理タブ。
+
+| role | できること |
+| --- | --- |
+| `admin` | 全データのCRUD、マニュアル更新、`/admin`（管理者画面） |
+| `member` | 既定値。閲覧は全員分／作成・更新・削除は自分の分のみ |
+| `restricted` | 閲覧も**自分の日報だけ**。書き込みは `member` と同じ |
+
+- `src/permissions.js` の `ADMIN_EMAILS` は、role の付け替えを間違えて管理者が
+  1人も居なくなったときの逃げ道として残してある。DB側の `public.is_admin()`
+  （`schema_v11_departments.sql`）と**同じ値**にしておくこと。
+- `is_frozen = true`（凍結）のアカウントはログインできず、DB側でも書き込みが全て弾かれる。
+- 所属部署は本人がヘッダー右上のユーザー名 →「プロフィール / 設定」から変更できる。
+  部署そのものの追加・改名・削除は管理者画面の部署管理タブから行う。
+- 管理者画面でユーザー名を押すと `report.html?view=<ユーザーID>` が開く。
+  これは**管理者閲覧モード（読み取り専用）**で、日報入力欄・メモ・設定は表示しない。

@@ -14,7 +14,8 @@
         <div class="nav">
           <button type="button" class="btn btn-demo" id="manual-btn">💡 アプリの使い方</button>
           <button type="button" class="btn btn-demo" id="demo-btn">📊 デモモードを見る</button>
-          <span class="user-chip" id="user-name"></span>
+          <!-- 押すとプロフィール / 設定モーダルが開く -->
+          <button type="button" class="user-chip" id="user-name"></button>
           <button type="button" class="btn btn-ghost" id="logout-btn">ログアウト</button>
         </div>
       </header>
@@ -23,6 +24,8 @@
         <a class="navbtn" data-nav="list" href="list.html">過去の日報</a>
         <a class="navbtn" data-nav="report" href="report.html">日報作成</a>
         <a class="navbtn" data-nav="dashboard" href="report.html#dashboard">データ分析 / ナレッジ</a>
+        <!-- 管理者にだけ出す（表示の切り替えは isAdmin() を見て JS が行う） -->
+        <a class="navbtn" data-nav="admin" href="admin.html" id="admin-nav" hidden>⚙ 管理</a>
       </nav>
 
       <p class="demo-banner" id="demo-banner" hidden></p>
@@ -83,6 +86,33 @@
 
         <div class="modal-footer">
           <button type="button" class="btn btn-ghost" id="manual-close-btn">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ プロフィール / 設定（全画面共通） ============ -->
+    <div class="modal-backdrop" id="profile-modal" hidden>
+      <div class="modal card" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+        <h3 class="modal-title" id="profile-modal-title">プロフィール / 設定</h3>
+
+        <dl class="profile-list">
+          <dt>名前</dt>
+          <dd id="profile-name"></dd>
+          <dt>メールアドレス</dt>
+          <dd id="profile-email"></dd>
+          <dt>権限</dt>
+          <dd id="profile-role"></dd>
+        </dl>
+
+        <p class="setting-group-title">所属部署</p>
+        <p class="hint">選択肢は管理者が「管理」画面から登録します。</p>
+        <select id="profile-department" class="profile-department" aria-label="所属部署"></select>
+
+        <p id="profile-message" class="message" role="status"></p>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" id="profile-close-btn">閉じる</button>
+          <button type="button" class="btn btn-secondary" id="profile-save-btn" disabled>保存する</button>
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { requireUser, signOut } from './session.js';
 import { setActiveNav } from './nav.js';
 import { resolveViewUser, setupDemoToggle, showDemoBanner } from './demo.js';
 import { setupManual } from './manual.js';
+import { setupProfile } from './profile.js';
 import { isAdmin } from './permissions.js';
 import { AUTO_METRICS, getAutoMetricSettings, setAutoMetricSetting } from './settings.js';
 import { draftKey, loadDraft, saveDraft, clearDraft, isDraftEmpty, formatSavedAt } from './draft.js';
@@ -29,6 +30,13 @@ async function init() {
   const user = await requireUser();
   if (!user) return;
 
+  // 管理者画面から ?view=<ユーザーID> で開かれたときは、その人の分析を読み取り専用で見る
+  const adminView = await resolveAdminView(user);
+  if (adminView) {
+    main(user, user, adminView);
+    return;
+  }
+
   const viewUser = await resolveViewUser(user);
 
   // デモモード中の管理者は「デモ太郎」名義で記入できる（デモの実演用）。
@@ -36,6 +44,22 @@ async function init() {
   const writeUser = viewUser.isDemo && isAdmin(user) ? viewUser : user;
 
   main(user, writeUser, viewUser);
+}
+
+// 管理者閲覧モードの対象ユーザー。
+// 管理者でない・対象が見つからない場合は null を返し、いつも通りの画面にする
+async function resolveAdminView(user) {
+  const viewId = new URLSearchParams(location.search).get('view');
+  if (!viewId || !isAdmin(user)) return null;
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, name')
+    .eq('id', viewId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return { id: data.id, name: data.name, isDemo: false, isAdminView: true };
 }
 
 // user      … ログイン中の本人（権限判定に使う）
@@ -79,6 +103,8 @@ function main(user, writeUser, viewUser) {
   let lineStates = []; // [{ achievement, reason }] commitLines と同じ並び
   let metricSettings = []; // カスタム数値評価枠の設定一覧
   const admin = isAdmin(user); // 管理者は他人の日報も編集できる
+  // 管理者閲覧モード。DBにも端末の設定にも一切書かない読み取り専用の状態
+  const adminView = viewUser.isAdminView === true;
 
   // 入力欄の値。自動挿入されただけの「・」行はここで捨てる
   const val = (id) => cleanBulletText(document.getElementById(id).value);
@@ -689,14 +715,14 @@ function main(user, writeUser, viewUser) {
   let draftTimer = null;
 
   function scheduleDraftSave() {
-    if (!draftReady) return;
+    if (!draftReady || adminView) return;
     clearTimeout(draftTimer);
     draftTimer = setTimeout(() => saveDraft(DRAFT_KEY, collectDraft()), 250);
   }
 
   // 打鍵のたびに書くと重いので少し待つが、離脱時は取りこぼさないよう即保存する
   window.addEventListener('pagehide', () => {
-    if (draftReady) saveDraft(DRAFT_KEY, collectDraft());
+    if (draftReady && !adminView) saveDraft(DRAFT_KEY, collectDraft());
   });
 
   form.addEventListener('input', scheduleDraftSave);
@@ -814,6 +840,12 @@ function main(user, writeUser, viewUser) {
   // ============================================================
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+
+    // 読み取り専用。入力欄は隠してあるが、念のためここでも止める
+    if (adminView) {
+      setMessage('管理者閲覧モード中は保存できません。', 'error');
+      return;
+    }
 
     if (!isConfigured) {
       setMessage('.env の設定が未完了のため保存できません。', 'error');
@@ -968,6 +1000,9 @@ function main(user, writeUser, viewUser) {
   let dashboardLoaded = false;
 
   function activateTab(name) {
+    // 管理者閲覧モードで見せるのは分析だけ。日報の入力欄には戻さない
+    if (adminView) name = 'dashboard';
+
     setActiveNav(name);
     Object.entries(panels).forEach(([key, panel]) => {
       panel.hidden = key !== name;
@@ -979,9 +1014,33 @@ function main(user, writeUser, viewUser) {
       dashboardLoaded = true;
       // デモモード中は「デモ太郎」のデータで描く
       import('./dashboard.js').then((module) => module.initDashboard(viewUser));
-      // メモは見ているデータに関係なく、常にログイン中の本人のもの
-      import('./knowledge.js').then((module) => module.setupKnowledge(user));
+      // メモは見ているデータに関係なく、常にログイン中の本人のもの。
+      // 管理者閲覧モードでは「保存されるもの」を一切置かないので開かない
+      if (!adminView) import('./knowledge.js').then((module) => module.setupKnowledge(user));
     }
+  }
+
+  // ⚠️ 管理者閲覧モードの見た目。読み取り専用であることを画面上部で明示し、
+  // 保存につながる操作（日報入力・メモ・デモ切替）は画面から外す
+  function applyAdminViewMode() {
+    document.getElementById('knowledge-card').hidden = true;
+    document.getElementById('demo-btn').hidden = true;
+    // マニュアルは管理者が書き換えられるので、読み取り専用の画面からは外す
+    document.getElementById('manual-btn').hidden = true;
+    document.querySelector('.navbtn[data-nav="report"]').hidden = true;
+
+    const banner = document.getElementById('demo-banner');
+    banner.hidden = false;
+    banner.classList.add('is-admin-view');
+    banner.textContent =
+      '⚠️ 管理者閲覧モード中（操作しても設定は保存されません）' +
+      `／「${viewUser.name}」のデータを表示しています`;
+
+    const back = document.createElement('a');
+    back.className = 'admin-view-back';
+    back.href = 'admin.html';
+    back.textContent = '管理者画面に戻る';
+    banner.appendChild(back);
   }
 
   // 「日報作成」「データ分析」はこのページ内の切り替え。「過去の日報」は普通のリンクのまま
@@ -997,13 +1056,17 @@ function main(user, writeUser, viewUser) {
     });
   });
 
-  activateTab(location.hash === '#dashboard' ? 'dashboard' : 'report');
+  activateTab(location.hash === '#dashboard' || adminView ? 'dashboard' : 'report');
+  if (adminView) applyAdminViewMode();
 
   // ============================================================
   // 6. 初期化
   // ============================================================
   document.getElementById('user-name').textContent = user.name;
+  // 管理者閲覧モードでは、自分の設定も含めて保存につながる操作を出さない
+  if (!adminView) setupProfile(user);
   document.getElementById('logout-btn').addEventListener('click', signOut);
+  if (admin) document.getElementById('admin-nav').hidden = false;
 
   // 1〜6の入力欄に階層的箇条書きアシストを付ける（7は自由記述なので対象外）
   BULLET_FIELDS.forEach((id) => attachBulletAssist(document.getElementById(id)));
@@ -1020,7 +1083,7 @@ function main(user, writeUser, viewUser) {
   updateAutoMetrics();
 
   setupDemoToggle();
-  showDemoBanner(viewUser);
+  if (!adminView) showDemoBanner(viewUser);
   setupManual(user);
 
   // デモ名義で書くときは、保存先を取り違えないよう帯で明示する
@@ -1032,6 +1095,9 @@ function main(user, writeUser, viewUser) {
   }
 
   (async () => {
+    // 管理者閲覧モードでは日報の入力欄を使わないので、下書きも編集対象も読み込まない
+    if (adminView) return;
+
     if (editId) {
       // 編集時は入力欄が出来てから値を戻したいので、設定の読み込みを待ってから流し込む
       await loadMetricSettings();
