@@ -6,8 +6,8 @@
 // ============================================================
 import { supabase } from './supabase.js';
 import { isAdmin } from './permissions.js';
-import { renderMarkdown } from './markdown.js';
-import { escapeHtml, formatDateTime } from './util.js';
+import { releaseListHtml } from './release-notes-view.js';
+import { escapeHtml } from './util.js';
 
 export function setupReleaseNotes(user) {
   const openBtn = document.getElementById('release-btn');
@@ -40,26 +40,17 @@ export function setupReleaseNotes(user) {
       return;
     }
 
-    listEl.innerHTML = notes
-      .map(
-        (note) => `
-          <article class="release-item" data-note="${escapeHtml(note.id)}">
-            <div class="release-item-head">
-              <h4 class="release-item-title">${escapeHtml(note.title)}</h4>
-              ${
-                admin
-                  ? `<div class="release-item-actions">
-                       <button type="button" class="btn btn-mini" data-action="edit">編集</button>
-                       <button type="button" class="btn btn-mini btn-danger" data-action="delete">削除</button>
-                     </div>`
-                  : ''
-              }
-            </div>
-            <p class="release-item-date">${escapeHtml(formatDateTime(note.created_at))}</p>
-            <div class="release-item-body">${renderMarkdown(note.content)}</div>
-          </article>`
-      )
-      .join('');
+    listEl.innerHTML = releaseListHtml(notes, { admin });
+  }
+
+  // 見出しクリックで本文を開閉する（閲覧者全員が使うので管理者判定より手前に置く）
+  function toggleItem(button) {
+    const article = button.closest('.release-item');
+    const body = article.querySelector('.release-item-body');
+    const open = button.getAttribute('aria-expanded') === 'true';
+
+    button.setAttribute('aria-expanded', String(!open));
+    body.hidden = open;
   }
 
   // 一覧と編集欄は入れ替えで出す。両方出すとモーダルが縦に伸びすぎる
@@ -133,7 +124,14 @@ export function setupReleaseNotes(user) {
   // 行ごとにボタンを張り直さずに済むよう、一覧側でまとめて拾う
   listEl.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action]');
-    if (!button || !admin) return;
+    if (!button) return;
+
+    if (button.dataset.action === 'toggle') {
+      toggleItem(button);
+      return;
+    }
+
+    if (!admin) return;
 
     const id = button.closest('.release-item').dataset.note;
     const note = notes.find((item) => item.id === id);
