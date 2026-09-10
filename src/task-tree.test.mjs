@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { appendTaskLine, findTaskPath, removeTask, taskLine } from './task-tree.js';
+import { appendTaskLine, canAddChild, findTaskPath, removeTask, taskLine } from './task-tree.js';
 
 const TASK = { major: 'A社対応', middle: '見積', minor: '原価の確認' };
 const TASK_LINES = ['・A社対応', '　・見積', '　　・原価の確認'];
@@ -144,4 +144,24 @@ test('大タスクを消すと、そのグループだけが消える', () => {
     tree.map((row) => row.name),
     ['B社対応']
   );
+});
+
+test('登録していない大・中タスクだけが、下の階層を足せる', () => {
+  const tree = sampleTree();
+  assert.equal(canAddChild(findTaskPath(tree, 1).major), true);
+  assert.equal(canAddChild(findTaskPath(tree, 2).middle), true);
+});
+
+test('登録したタスクには、もう下の階層を足せない', () => {
+  const tree = sampleTree();
+  tree[0].registered = true;
+  tree[0].children[0].registered = true;
+  assert.equal(canAddChild(findTaskPath(tree, 1).major), false);
+  assert.equal(canAddChild(findTaskPath(tree, 2).middle), false);
+});
+
+test('最下層の小タスクと、消えたあとのタスクには足せない', () => {
+  const tree = sampleTree();
+  assert.equal(canAddChild(findTaskPath(tree, 3).minor), false);
+  assert.equal(canAddChild(null), false);
 });

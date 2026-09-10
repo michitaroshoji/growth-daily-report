@@ -33,6 +33,13 @@ export function findTaskPath(tree, id) {
   return null;
 }
 
+// 子タスクを足せるのは「まだ登録していない、子を持てる階層」だけ。
+// 登録した時点で書き出す階層が決まるので、あとから下の階層は足させない。
+// 最下層（小タスク）は children を持たないので、ここで false になる
+export function canAddChild(task) {
+  return Boolean(task) && !task.registered && Array.isArray(task.children);
+}
+
 // id のタスクを（子ごと）ツリーから取り除く。取り除けたら true
 export function removeTask(tree, id) {
   const path = findTaskPath(tree, id);
