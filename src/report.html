@@ -54,6 +54,28 @@
         <span class="date-note" id="date-note" hidden></span>
       </div>
 
+      <!-- ============ タスク管理（3階層 / このページ内だけの使い捨て） ============
+           DOM上は「0 前回の振り返り」の直前に置く。
+           画面が広いときだけ CSS で左の余白へ逃がす（style.css） -->
+      <section class="card task-panel" id="task-panel">
+        <h2 class="section-title">
+          <span class="badge">TASK</span>タスク管理
+          <span class="title-note">日報には保存されません</span>
+        </h2>
+        <p class="hint">
+          大 ＞ 中 ＞ 小 の順に足していきます。いちばん下のタスクで
+          「完了」は 1. 業務実績へ、「未達」は 4. 次回の宣言へ書き出します。
+        </p>
+
+        <div class="task-add">
+          <input type="text" id="task-major-input" placeholder="大タスクを追加" maxlength="60" />
+          <button type="button" class="btn btn-mini" id="task-major-add">追加</button>
+        </div>
+
+        <div class="task-tree" id="task-tree"></div>
+        <p class="hint" id="task-empty">まだタスクがありません。</p>
+      </section>
+
       <!-- ============ 0. 前回の振り返り ============ -->
       <section class="card review-card">
         <h2 class="section-title">
