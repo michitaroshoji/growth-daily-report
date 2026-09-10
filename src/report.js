@@ -8,6 +8,7 @@ import { setupProfile } from './profile.js';
 import { isAdmin } from './permissions.js';
 import { AUTO_METRICS, getAutoMetricSettings, setAutoMetricSetting } from './settings.js';
 import { draftKey, loadDraft, saveDraft, clearDraft, isDraftEmpty, formatSavedAt } from './draft.js';
+import { appendTaskLine, findTaskPath, removeTask } from './task-tree.js';
 import {
   escapeHtml,
   formatYmd,
@@ -22,6 +23,7 @@ import {
   trimDecimal,
   ACHIEVEMENTS,
   CANCELLED,
+  showToast,
 } from './util.js';
 
 // 未ログインなら requireUser() が index.html へ飛ばす
@@ -77,6 +79,14 @@ function main(user, writeUser, viewUser) {
   const prevDateEl = document.getElementById('prev-date');
   const commitLinesEl = document.getElementById('commit-lines');
   const whyDynamicEl = document.getElementById('why-dynamic');
+
+  const factEl = document.getElementById('fact');
+  const commitmentEl = document.getElementById('commitment');
+
+  const taskPanelEl = document.getElementById('task-panel');
+  const taskTreeEl = document.getElementById('task-tree');
+  const taskEmptyEl = document.getElementById('task-empty');
+  const taskMajorInputEl = document.getElementById('task-major-input');
 
   const metricsInputsEl = document.getElementById('metrics-inputs');
   const metricsEmptyEl = document.getElementById('metrics-empty');
@@ -209,6 +219,205 @@ function main(user, writeUser, viewUser) {
   });
 
   document.getElementById('fact').addEventListener('input', updateAutoMetrics);
+
+  // ============================================================
+  // 0-c. タスク管理（3階層 / このページ内だけの使い捨て）
+  //   tree = [{ id, name, children: [{ id, name, children: [{ id, name, status }] }] }]
+  //   Supabase にも下書きにも保存しない。画面を離れると消える
+  // ============================================================
+  const taskTree = [];
+  let nextTaskId = 1;
+
+  // 「＋中」「＋小」で開いている入力欄の親ID。開いていなければ null。
+  // 同時にひとつだけ開いて、パネルが縦に伸びすぎないようにする
+  let openAddId = null;
+
+  function findTask(id) {
+    return findTaskPath(taskTree, id);
+  }
+
+  function removeTaskNode(id) {
+    removeTask(taskTree, id);
+    // 消したタスクの下で開いていた追加欄は、行ごと無くなるので閉じる
+    if (openAddId !== null && !findTask(openAddId)) openAddId = null;
+  }
+
+  // ---------- 描画 ----------
+  function renderTaskTree() {
+    taskTreeEl.innerHTML = taskTree.map(taskMajorHtml).join('');
+    taskEmptyEl.hidden = taskTree.length > 0;
+
+    // 開いている追加欄は、描き直したあとも続けて打てるようにフォーカスを戻す
+    const openInput = taskTreeEl.querySelector('[data-add-input]');
+    if (openInput) openInput.focus();
+  }
+
+  function taskMajorHtml(major) {
+    return `
+      <div class="task-group">
+        <div class="task-row task-row-major">
+          <p class="task-row-text">${escapeHtml(major.name)}</p>
+          <button type="button" class="task-icon-btn" data-add="${major.id}">＋中</button>
+          <button type="button" class="task-icon-btn is-remove" data-remove="${major.id}"
+                  aria-label="大タスクを削除">×</button>
+        </div>
+        ${major.children.map(taskMiddleHtml).join('')}
+        ${taskAddInputHtml(major.id, '中タスクを追加', false)}
+      </div>`;
+  }
+
+  function taskMiddleHtml(middle) {
+    return `
+      <div class="task-row task-row-middle">
+        <p class="task-row-text">${escapeHtml(middle.name)}</p>
+        <button type="button" class="task-icon-btn" data-add="${middle.id}">＋小</button>
+        <button type="button" class="task-icon-btn is-remove" data-remove="${middle.id}"
+                aria-label="中タスクを削除">×</button>
+      </div>
+      ${middle.children.map(taskMinorHtml).join('')}
+      ${taskAddInputHtml(middle.id, '小タスクを追加', true)}`;
+  }
+
+  // 最下層のタスクにだけ「完了 / 未達 / 削除」を出す
+  function taskMinorHtml(minor) {
+    const state = minor.status ? ` data-state="${minor.status}"` : '';
+    return `
+      <div class="task-row task-row-minor is-leaf"${state}>
+        <p class="task-row-text">${escapeHtml(minor.name)}</p>
+        <div class="seg" role="group" aria-label="タスクの操作">
+          <button type="button" class="seg-btn" data-act="done" data-task="${minor.id}">完了</button>
+          <button type="button" class="seg-btn" data-act="miss" data-task="${minor.id}">未達</button>
+          <button type="button" class="seg-btn" data-act="remove" data-task="${minor.id}">削除</button>
+        </div>
+      </div>`;
+  }
+
+  function taskAddInputHtml(parentId, placeholder, isMinor) {
+    if (openAddId !== parentId) return '';
+    return `
+      <div class="task-add task-add-child${isMinor ? ' is-minor' : ''}">
+        <input type="text" data-add-input="${parentId}" placeholder="${placeholder}" maxlength="60" />
+        <button type="button" class="btn btn-mini" data-add-commit="${parentId}">追加</button>
+      </div>`;
+  }
+
+  // ---------- 追加 ----------
+  function addMajorTask() {
+    const name = taskMajorInputEl.value.trim();
+    if (!name) return;
+
+    const major = { id: nextTaskId, name, children: [] };
+    nextTaskId += 1;
+    taskTree.push(major);
+    taskMajorInputEl.value = '';
+
+    // 大タスクだけでは日報に書き出せないので、続けて中タスクを打てるようにしておく
+    openAddId = major.id;
+    renderTaskTree();
+  }
+
+  function addChildTask(parentId) {
+    const input = taskTreeEl.querySelector(`[data-add-input="${parentId}"]`);
+    if (!input) return;
+
+    const name = input.value.trim();
+    if (!name) return;
+
+    const path = findTask(parentId);
+    if (!path) return;
+
+    // 中タスクの下は最下層なので、それ以上の子は持たせない
+    const child = path.middle ? { id: nextTaskId, name } : { id: nextTaskId, name, children: [] };
+    (path.middle || path.major).children.push(child);
+    nextTaskId += 1;
+    renderTaskTree(); // 入力欄は開いたまま。同じ階層を続けて足せる
+  }
+
+  // ---------- 完了 / 未達 / 削除 ----------
+  // 完了 → 「1. 業務実績」、未達 → 「4. 次回の宣言」へ、大タスクを見出しにして書き出す。
+  // 押し間違えたときは、テキストエリアの文字を手で消してもらう（自動での取り消しはしない）
+  function runTaskLeafAction(id, act) {
+    const path = findTask(id);
+    if (!path || !path.minor) return;
+
+    if (act === 'remove') {
+      removeTaskNode(id);
+      renderTaskTree();
+      return;
+    }
+
+    const done = act === 'done';
+    const target = done ? factEl : commitmentEl;
+    const task = { major: path.major.name, middle: path.middle.name, minor: path.minor.name };
+
+    target.value = appendTaskLine(target.value, task);
+    target.dispatchEvent(new Event('input', { bubbles: true })); // 自動リサイズを追従させる
+
+    path.minor.status = done ? '完了' : '未達';
+    renderTaskTree();
+    showToast(done ? '「1. 業務実績」へ書き出しました' : '「4. 次回の宣言」へ書き出しました');
+  }
+
+  // ---------- 操作の受け口 ----------
+  taskMajorInputEl.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
+    addMajorTask();
+  });
+
+  document.getElementById('task-major-add').addEventListener('click', addMajorTask);
+
+  taskTreeEl.addEventListener('click', (event) => {
+    const leafBtn = event.target.closest('.seg-btn[data-act]');
+    if (leafBtn) {
+      runTaskLeafAction(Number(leafBtn.dataset.task), leafBtn.dataset.act);
+      return;
+    }
+
+    const addBtn = event.target.closest('[data-add]');
+    if (addBtn) {
+      const id = Number(addBtn.dataset.add);
+      openAddId = openAddId === id ? null : id; // もう一度押したら閉じる
+      renderTaskTree();
+      return;
+    }
+
+    const commitBtn = event.target.closest('[data-add-commit]');
+    if (commitBtn) {
+      addChildTask(Number(commitBtn.dataset.addCommit));
+      return;
+    }
+
+    const removeBtn = event.target.closest('[data-remove]');
+    if (removeBtn) {
+      removeTaskNode(Number(removeBtn.dataset.remove));
+      renderTaskTree();
+    }
+  });
+
+  taskTreeEl.addEventListener('keydown', (event) => {
+    const input = event.target.closest('[data-add-input]');
+    if (!input) return;
+
+    if (event.key === 'Escape') {
+      openAddId = null;
+      renderTaskTree();
+      return;
+    }
+
+    if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
+    addChildTask(Number(input.dataset.addInput));
+  });
+
+  // ---------- 左の余白へ回り込ませるための高さ合わせ ----------
+  // ヘッダーの高さは折り返しで変わるので、実際に測ってCSS変数へ流し込む
+  const topbarEl = document.querySelector('.topbar');
+
+  function syncTopbarHeight() {
+    document.documentElement.style.setProperty('--topbar-h', `${topbarEl.offsetHeight}px`);
+  }
+
+  syncTopbarHeight();
+  window.addEventListener('resize', syncTopbarHeight);
 
   // ============================================================
   // 1. 前回の宣言 → 末端タスクだけを評価する
@@ -738,10 +947,13 @@ function main(user, writeUser, viewUser) {
   const TEXT_INPUT_TYPES = ['text', 'number', 'date', 'email', 'password', 'search', 'tel', 'url'];
 
   // 目に見えて操作できるものだけを移動先にする。
-  // バリュー自己評価の星は opacity:0 / 幅0の radio なので、ここで自然に外れる
+  // バリュー自己評価の星は opacity:0 / 幅0の radio なので、ここで自然に外れる。
+  // タスク管理セクションの入力欄は、日報の記入順とは関係ないので移動先から外す。
+  // これを入れないと「対象日」でEnterを押した先がタスク追加欄になってしまう
   function focusableFields() {
     return [...form.querySelectorAll('input, textarea, select, button')].filter(
-      (el) => !el.disabled && (el.offsetWidth > 0 || el.offsetHeight > 0)
+      (el) =>
+        !el.disabled && !taskPanelEl.contains(el) && (el.offsetWidth > 0 || el.offsetHeight > 0)
     );
   }
 
@@ -1077,6 +1289,7 @@ function main(user, writeUser, viewUser) {
     .forEach(attachAutoResize);
 
   renderPmv();
+  renderTaskTree();
   syncAddButton();
   renderAutoMetricToggles();
   applyAutoMetricVisibility();
