@@ -16,7 +16,14 @@ import {
   isDraftEmpty,
   formatSavedAt,
 } from './draft.js';
-import { appendTaskLine, canAddChild, findTaskPath, openAddIdFor, removeTask } from './task-tree.js';
+import {
+  appendTaskLine,
+  canAddChild,
+  canRegister,
+  findTaskPath,
+  openAddIdFor,
+  removeTask,
+} from './task-tree.js';
 import {
   escapeHtml,
   formatYmd,
@@ -296,11 +303,15 @@ function main(user, writeUser, viewUser) {
   }
 
   // 大・中タスクの行。「登録」を押すまでは追加 / 削除だけを出し、
-  // 登録したら小タスクと同じ「完了 / 未達 / 削除」に入れ替える
+  // 登録したら小タスクと同じ「完了 / 未達 / 削除」に入れ替える。
+  // 下の階層を足したあとは、書き出しがその子の側に移るので「登録」は出さない
   function taskRowHtml(task, rowClass, label, addLabel) {
+    const registerHtml = canRegister(task)
+      ? `<button type="button" class="task-icon-btn" data-register="${task.id}">登録</button>`
+      : '';
     const controls = task.registered
       ? taskActionsHtml(task.id)
-      : `<button type="button" class="task-icon-btn" data-register="${task.id}">登録</button>
+      : `${registerHtml}
         <button type="button" class="task-icon-btn" data-add="${task.id}">${addLabel}</button>
         <button type="button" class="task-icon-btn is-remove" data-remove="${task.id}"
                 aria-label="${label}を削除">${TRASH_ICON}</button>`;
@@ -361,7 +372,9 @@ function main(user, writeUser, viewUser) {
     taskMajorInputEl.focus();
   }
 
-  function addChildTask(parentId) {
+  // descend が true なら、足した子の追加欄をそのまま開く（中タスク → 小タスクへ続けて打つ）。
+  // 足した子が最下層（小タスク）のときは開けないので、いまの入力欄をそのまま使う
+  function addChildTask(parentId, descend = false) {
     const input = taskTreeEl.querySelector(`[data-add-input="${parentId}"]`);
     if (!input) return;
 
@@ -378,6 +391,7 @@ function main(user, writeUser, viewUser) {
     const child = path.middle ? { id: nextTaskId, name } : { id: nextTaskId, name, children: [] };
     parent.children.push(child);
     nextTaskId += 1;
+    if (descend && canAddChild(child)) openAddId = child.id;
     renderTaskTree(); // 入力欄は開いたまま。同じ階層を続けて足せる
   }
 
@@ -470,7 +484,8 @@ function main(user, writeUser, viewUser) {
     }
 
     if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
-    addChildTask(Number(input.dataset.addInput));
+    // シフト＋エンターは、足したタスクの下の階層へ入力欄を移す（中タスク → 小タスク）
+    addChildTask(Number(input.dataset.addInput), event.shiftKey);
   });
 
   // ---------- 一時保存（localStorage / 日報本文の下書きとは別のキー） ----------
