@@ -16,7 +16,7 @@ import {
   isDraftEmpty,
   formatSavedAt,
 } from './draft.js';
-import { appendTaskLine, findTaskPath, removeTask } from './task-tree.js';
+import { appendTaskLine, canAddChild, findTaskPath, removeTask } from './task-tree.js';
 import {
   escapeHtml,
   formatYmd,
@@ -280,7 +280,7 @@ function main(user, writeUser, viewUser) {
       <div class="task-group">
         ${taskRowHtml(major, 'task-row-major', '大タスク', '＋中')}
         ${major.children.map(taskMiddleHtml).join('')}
-        ${taskAddInputHtml(major.id, '中タスクを追加', false)}
+        ${taskAddInputHtml(major, '中タスクを追加', false)}
       </div>`;
   }
 
@@ -288,7 +288,7 @@ function main(user, writeUser, viewUser) {
     return `
       ${taskRowHtml(middle, 'task-row-middle', '中タスク', '＋小')}
       ${middle.children.map(taskMinorHtml).join('')}
-      ${taskAddInputHtml(middle.id, '小タスクを追加', true)}`;
+      ${taskAddInputHtml(middle, '小タスクを追加', true)}`;
   }
 
   // 大・中タスクの行。「登録」を押すまでは追加 / 削除だけを出し、
@@ -331,12 +331,13 @@ function main(user, writeUser, viewUser) {
     return task.status ? ` data-state="${task.status}"` : '';
   }
 
-  function taskAddInputHtml(parentId, placeholder, isMinor) {
-    if (openAddId !== parentId) return '';
+  // 登録済みのタスクには出さない。「＋中」「＋小」と同じく、下の階層を足す手立てを消す
+  function taskAddInputHtml(parent, placeholder, isMinor) {
+    if (openAddId !== parent.id || !canAddChild(parent)) return '';
     return `
       <div class="task-add task-add-child${isMinor ? ' is-minor' : ''}">
-        <input type="text" data-add-input="${parentId}" placeholder="${placeholder}" maxlength="60" />
-        <button type="button" class="btn btn-mini" data-add-commit="${parentId}">追加</button>
+        <input type="text" data-add-input="${parent.id}" placeholder="${placeholder}" maxlength="60" />
+        <button type="button" class="btn btn-mini" data-add-commit="${parent.id}">追加</button>
       </div>`;
   }
 
@@ -365,9 +366,12 @@ function main(user, writeUser, viewUser) {
     const path = findTask(parentId);
     if (!path) return;
 
+    const parent = path.middle || path.major;
+    if (!canAddChild(parent)) return;
+
     // 中タスクの下は最下層なので、それ以上の子は持たせない
     const child = path.middle ? { id: nextTaskId, name } : { id: nextTaskId, name, children: [] };
-    (path.middle || path.major).children.push(child);
+    parent.children.push(child);
     nextTaskId += 1;
     renderTaskTree(); // 入力欄は開いたまま。同じ階層を続けて足せる
   }
@@ -417,11 +421,14 @@ function main(user, writeUser, viewUser) {
       return;
     }
 
-    // 大・中タスクの「登録」。押した行にも完了 / 未達 / 削除を出す
+    // 大・中タスクの「登録」。押した行にも完了 / 未達 / 削除を出す。
+    // 開いていた追加欄は、「＋中」「＋小」ごと閉じて下の階層を足せなくする
     const registerBtn = event.target.closest('[data-register]');
     if (registerBtn) {
-      const path = findTask(Number(registerBtn.dataset.register));
+      const id = Number(registerBtn.dataset.register);
+      const path = findTask(id);
       if (path) (path.middle || path.major).registered = true;
+      if (openAddId === id) openAddId = null;
       renderTaskTree();
       return;
     }
