@@ -2,12 +2,14 @@
 // タスク管理（3階層）のデータ操作と、日報テキストへの差し込み
 //
 //   ツリーの形:
-//     [{ id, name, children: [{ id, name, children: [{ id, name, status }] }] }]
+//     [{ id, name, registered, status, children: [{ ... , children: [{ ... }] }] }]
 //
-//   日報へ書き出す形:
-//     ■ {大タスク}
-//     　・{中タスク}：{小タスク}
+//   日報へ書き出す形（インデント1段 = 全角スペース1つ）:
+//     ・{大タスク}
+//     　・{中タスク}
+//     　　・{小タスク}
 //
+//   翌日の「0. 前回の振り返り」は、この形をそのまま階層として読み直す（util.js）。
 //   DOM や Supabase には触らない。画面の組み立ては report.js の担当。
 // ============================================================
 
@@ -46,32 +48,52 @@ export function removeTask(tree, id) {
 // 日報テキストへの差し込み
 // ============================================================
 
-const MAJOR_MARK = '■';
-const CHILD_MARK = '・';
+const BULLET_MARK = '・';
 const INDENT_UNIT = '　'; // util.js の階層つき箇条書きと同じ「全角スペース1つ」
-const CHILD_SEPARATOR = '：';
 
-const MAJOR_LINE_RE = /^[　\t ]*■[ 　]*(.*?)[ 　]*$/;
-const CHILD_LINE_RE = /^[　\t ]*・/;
+const BULLET_LINE_RE = /^([　\t ]*)・[ 　]*(.*?)[ 　]*$/;
 const BLANK_LINE_RE = /^[　\t ]*(・[ 　]*)?$/; // 空行と、中身のない「・」だけの行
 
-// 大タスクの見出し行
-export function majorHeadingLine(major) {
-  return `${MAJOR_MARK} ${String(major).trim()}`;
+// 深さ（0=大 / 1=中 / 2=小）ぶんだけ字下げした1行
+export function taskLine(depth, name) {
+  return `${INDENT_UNIT.repeat(depth)}${BULLET_MARK}${String(name ?? '').trim()}`;
 }
 
-// 見出しにぶら下げる1行。小タスクが無い（中タスクが末端）ときは中タスク名だけ
-export function taskChildLine(middle, minor) {
-  const middleText = String(middle ?? '').trim();
-  const minorText = String(minor ?? '').trim();
-  const body = minorText ? `${middleText}${CHILD_SEPARATOR}${minorText}` : middleText;
-  return `${INDENT_UNIT}${CHILD_MARK}${body}`;
+// 行頭の空白から「何段目か」を数える。
+// 全角スペース／タブを1段、半角スペース2つを1段として扱う（util.js と同じ規則）
+function indentDepth(leadingSpace) {
+  let halfWidths = 0;
+  for (const ch of leadingSpace) {
+    halfWidths += ch === ' ' ? 1 : 2;
+  }
+  return Math.floor(halfWidths / 2);
 }
 
-// 見出し行なら大タスク名を返す。見出し行でなければ null
-function majorOf(line) {
-  const match = String(line).match(MAJOR_LINE_RE);
-  return match ? match[1] : null;
+// 箇条書きの行なら { depth, text } を返す。箇条書きでなければ null
+function bulletRow(line) {
+  const match = String(line).match(BULLET_LINE_RE);
+  return match ? { depth: indentDepth(match[1]), text: match[2] } : null;
+}
+
+// lines[from, to) から「深さ depth の、名前が name の行」を探す。無ければ -1
+function findRowIndex(lines, name, depth, from, to) {
+  for (let i = from; i < to; i += 1) {
+    const row = bulletRow(lines[i]);
+    if (row && row.depth === depth && row.text === name) return i;
+  }
+  return -1;
+}
+
+// lines[index] の行にぶら下がる子行がどこで終わるか（その次の行番号）を返す。
+// 同じ深さ以下の箇条書き（＝次の兄弟）か、箇条書きでない行（ユーザーが書いた文）で止まる
+function blockEnd(lines, index, depth) {
+  let end = index + 1;
+  while (end < lines.length) {
+    const row = bulletRow(lines[end]);
+    if (!row || row.depth <= depth) break;
+    end += 1;
+  }
+  return end;
 }
 
 // 末尾の空行（フォーカスで自動挿入された「・」だけの行を含む）を落とす
@@ -81,28 +103,40 @@ function dropTrailingBlank(lines) {
   return body;
 }
 
-// text に task（{ major, middle, minor }）を1行ぶん差し込んだ文字列を返す。
+// text に task（{ major, middle, minor }）を差し込んだ文字列を返す。
+// 上の階層から順にたどり、既にある行はそのまま使って、足りない階層だけを足す。
 // 元の text は書き換えない
 export function appendTaskLine(text, task) {
-  const major = String(task.major ?? '').trim();
-  const child = taskChildLine(task.middle, task.minor);
-  const lines = String(text ?? '').split('\n');
-  const headIndex = lines.findIndex((line) => majorOf(line) === major);
-
-  // 見出しがまだ無い：末尾の空行を落としてから、見出しごと足す
-  if (headIndex < 0) {
-    return [...dropTrailingBlank(lines), majorHeadingLine(major), child].join('\n');
+  // 名前が空になった時点で打ち切る（大だけ／大＋中／大＋中＋小 の3通り）
+  const names = [];
+  for (const raw of [task.major, task.middle, task.minor]) {
+    const name = String(raw ?? '').trim();
+    if (!name) break;
+    names.push(name);
   }
 
-  // 見出しの直後に続く子行のうち、いちばん最後の次へ差し込む。
-  // 子行でない行（ユーザーが自分で書いた文）が来たらそこで止める
-  let end = headIndex + 1;
-  while (end < lines.length && CHILD_LINE_RE.test(lines[end])) end += 1;
+  const lines = String(text ?? '').split('\n');
+  if (names.length === 0) return lines.join('\n');
+
+  // たどれるところまでたどる。found = 既にある階層の数、end = そこへ足すときの差し込み位置
+  let found = 0;
+  let from = 0;
+  let end = lines.length;
+  while (found < names.length) {
+    const index = findRowIndex(lines, names[found], found, from, end);
+    if (index < 0) break;
+    from = index + 1;
+    end = blockEnd(lines, index, found);
+    found += 1;
+  }
 
   // まったく同じ行が既にあるなら二重には足さない
-  if (lines.slice(headIndex + 1, end).some((line) => line.trim() === child.trim())) {
-    return String(text ?? '');
-  }
+  if (found === names.length) return lines.join('\n');
 
-  return [...lines.slice(0, end), child, ...lines.slice(end)].join('\n');
+  const added = names.slice(found).map((name, i) => taskLine(found + i, name));
+
+  // 大タスクの見出しがまだ無い：末尾の空行を落としてから、見出しごと足す
+  if (found === 0) return [...dropTrailingBlank(lines), ...added].join('\n');
+
+  return [...lines.slice(0, end), ...added, ...lines.slice(end)].join('\n');
 }

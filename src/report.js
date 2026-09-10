@@ -7,7 +7,15 @@ import { setupReleaseNotes } from './release-notes.js';
 import { setupProfile } from './profile.js';
 import { isAdmin } from './permissions.js';
 import { AUTO_METRICS, getAutoMetricSettings, setAutoMetricSetting } from './settings.js';
-import { draftKey, loadDraft, saveDraft, clearDraft, isDraftEmpty, formatSavedAt } from './draft.js';
+import {
+  draftKey,
+  taskDraftKey,
+  loadDraft,
+  saveDraft,
+  clearDraft,
+  isDraftEmpty,
+  formatSavedAt,
+} from './draft.js';
 import { appendTaskLine, findTaskPath, removeTask } from './task-tree.js';
 import {
   escapeHtml,
@@ -86,6 +94,7 @@ function main(user, writeUser, viewUser) {
   const taskPanelEl = document.getElementById('task-panel');
   const taskTreeEl = document.getElementById('task-tree');
   const taskEmptyEl = document.getElementById('task-empty');
+  const taskDraftBannerEl = document.getElementById('task-draft-banner');
   const taskMajorInputEl = document.getElementById('task-major-input');
 
   const metricsInputsEl = document.getElementById('metrics-inputs');
@@ -221,16 +230,26 @@ function main(user, writeUser, viewUser) {
   document.getElementById('fact').addEventListener('input', updateAutoMetrics);
 
   // ============================================================
-  // 0-c. タスク管理（3階層 / このページ内だけの使い捨て）
-  //   tree = [{ id, name, children: [{ id, name, children: [{ id, name, status }] }] }]
-  //   Supabase にも下書きにも保存しない。画面を離れると消える
+  // 0-c. タスク管理（3階層）
+  //   tree = [{ id, name, registered, status, children: [{ ... }] }]
+  //   Supabase には保存しない。この端末の localStorage にだけ一時保存する
+  //   （日をまたいで持ち越すので、日報本文の下書きとは別のキー）
   // ============================================================
+  const TASK_DRAFT_KEY = taskDraftKey(writeUser.id);
   const taskTree = [];
   let nextTaskId = 1;
+  let taskDraftReady = false; // 復元中の描き直しで保存が走らないようにする
 
   // 「＋中」「＋小」で開いている入力欄の親ID。開いていなければ null。
   // 同時にひとつだけ開いて、パネルが縦に伸びすぎないようにする
   let openAddId = null;
+
+  // 削除ボタンのゴミ箱。端末によって見え方が変わる絵文字は使わず、図形を直接埋め込む。
+  // 色と大きさはボタン側（.task-icon-btn）に合わせる
+  const TRASH_ICON = `
+    <svg class="task-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 6.5h16M9.5 6.5V4h5v2.5M9.5 10.5v7M14.5 10.5v7M6.5 6.5l1 13.5h9l1-13.5" />
+    </svg>`;
 
   function findTask(id) {
     return findTaskPath(taskTree, id);
@@ -247,6 +266,10 @@ function main(user, writeUser, viewUser) {
     taskTreeEl.innerHTML = taskTree.map(taskMajorHtml).join('');
     taskEmptyEl.hidden = taskTree.length > 0;
 
+    // 追加・削除・完了などのボタン操作は input イベントを出さないので、
+    // 描き直すこの場所で一時保存を明示的に呼ぶ
+    saveTaskDraft();
+
     // 開いている追加欄は、描き直したあとも続けて打てるようにフォーカスを戻す
     const openInput = taskTreeEl.querySelector('[data-add-input]');
     if (openInput) openInput.focus();
@@ -255,12 +278,7 @@ function main(user, writeUser, viewUser) {
   function taskMajorHtml(major) {
     return `
       <div class="task-group">
-        <div class="task-row task-row-major">
-          <p class="task-row-text">${escapeHtml(major.name)}</p>
-          <button type="button" class="task-icon-btn" data-add="${major.id}">＋中</button>
-          <button type="button" class="task-icon-btn is-remove" data-remove="${major.id}"
-                  aria-label="大タスクを削除">×</button>
-        </div>
+        ${taskRowHtml(major, 'task-row-major', '大タスク', '＋中')}
         ${major.children.map(taskMiddleHtml).join('')}
         ${taskAddInputHtml(major.id, '中タスクを追加', false)}
       </div>`;
@@ -268,28 +286,49 @@ function main(user, writeUser, viewUser) {
 
   function taskMiddleHtml(middle) {
     return `
-      <div class="task-row task-row-middle">
-        <p class="task-row-text">${escapeHtml(middle.name)}</p>
-        <button type="button" class="task-icon-btn" data-add="${middle.id}">＋小</button>
-        <button type="button" class="task-icon-btn is-remove" data-remove="${middle.id}"
-                aria-label="中タスクを削除">×</button>
-      </div>
+      ${taskRowHtml(middle, 'task-row-middle', '中タスク', '＋小')}
       ${middle.children.map(taskMinorHtml).join('')}
       ${taskAddInputHtml(middle.id, '小タスクを追加', true)}`;
   }
 
-  // 最下層のタスクにだけ「完了 / 未達 / 削除」を出す
-  function taskMinorHtml(minor) {
-    const state = minor.status ? ` data-state="${minor.status}"` : '';
+  // 大・中タスクの行。「登録」を押すまでは追加 / 削除だけを出し、
+  // 登録したら小タスクと同じ「完了 / 未達 / 削除」に入れ替える
+  function taskRowHtml(task, rowClass, label, addLabel) {
+    const controls = task.registered
+      ? taskActionsHtml(task.id)
+      : `<button type="button" class="task-icon-btn" data-register="${task.id}">登録</button>
+        <button type="button" class="task-icon-btn" data-add="${task.id}">${addLabel}</button>
+        <button type="button" class="task-icon-btn is-remove" data-remove="${task.id}"
+                aria-label="${label}を削除">${TRASH_ICON}</button>`;
+
     return `
-      <div class="task-row task-row-minor is-leaf"${state}>
-        <p class="task-row-text">${escapeHtml(minor.name)}</p>
-        <div class="seg" role="group" aria-label="タスクの操作">
-          <button type="button" class="seg-btn" data-act="done" data-task="${minor.id}">完了</button>
-          <button type="button" class="seg-btn" data-act="miss" data-task="${minor.id}">未達</button>
-          <button type="button" class="seg-btn" data-act="remove" data-task="${minor.id}">削除</button>
-        </div>
+      <div class="task-row ${rowClass}${task.registered ? ' is-registered' : ''}"${stateAttr(task)}>
+        <p class="task-row-text">${escapeHtml(task.name)}</p>
+        ${controls}
       </div>`;
+  }
+
+  // 最下層のタスクは、登録しなくても最初から書き出せる
+  function taskMinorHtml(minor) {
+    return `
+      <div class="task-row task-row-minor is-leaf"${stateAttr(minor)}>
+        <p class="task-row-text">${escapeHtml(minor.name)}</p>
+        ${taskActionsHtml(minor.id)}
+      </div>`;
+  }
+
+  function taskActionsHtml(id) {
+    return `
+      <div class="seg" role="group" aria-label="タスクの操作">
+        <button type="button" class="seg-btn" data-act="done" data-task="${id}">完了</button>
+        <button type="button" class="seg-btn" data-act="miss" data-task="${id}">未達</button>
+        <button type="button" class="seg-btn" data-act="remove" data-task="${id}">削除</button>
+      </div>`;
+  }
+
+  // 完了 / 未達を押したあとの行の色分け（style.css の [data-state]）
+  function stateAttr(task) {
+    return task.status ? ` data-state="${task.status}"` : '';
   }
 
   function taskAddInputHtml(parentId, placeholder, isMinor) {
@@ -311,7 +350,7 @@ function main(user, writeUser, viewUser) {
     taskTree.push(major);
     taskMajorInputEl.value = '';
 
-    // 大タスクだけでは日報に書き出せないので、続けて中タスクを打てるようにしておく
+    // 大タスクだけでも「登録」すれば書き出せるが、たいていは中タスクを続けて打つので開けておく
     openAddId = major.id;
     renderTaskTree();
   }
@@ -334,11 +373,12 @@ function main(user, writeUser, viewUser) {
   }
 
   // ---------- 完了 / 未達 / 削除 ----------
-  // 完了 → 「1. 業務実績」、未達 → 「4. 次回の宣言」へ、大タスクを見出しにして書き出す。
+  // 完了 → 「1. 業務実績」、未達 → 「4. 次回の宣言」へ、押したタスクの階層まで書き出す
+  // （大タスクだけ／大＋中／大＋中＋小 の3通り）。
   // 押し間違えたときは、テキストエリアの文字を手で消してもらう（自動での取り消しはしない）
-  function runTaskLeafAction(id, act) {
+  function runTaskAction(id, act) {
     const path = findTask(id);
-    if (!path || !path.minor) return;
+    if (!path) return;
 
     if (act === 'remove') {
       removeTaskNode(id);
@@ -348,12 +388,16 @@ function main(user, writeUser, viewUser) {
 
     const done = act === 'done';
     const target = done ? factEl : commitmentEl;
-    const task = { major: path.major.name, middle: path.middle.name, minor: path.minor.name };
+    const task = {
+      major: path.major.name,
+      middle: path.middle && path.middle.name,
+      minor: path.minor && path.minor.name,
+    };
 
     target.value = appendTaskLine(target.value, task);
     target.dispatchEvent(new Event('input', { bubbles: true })); // 自動リサイズを追従させる
 
-    path.minor.status = done ? '完了' : '未達';
+    (path.minor || path.middle || path.major).status = done ? '完了' : '未達';
     renderTaskTree();
     showToast(done ? '「1. 業務実績」へ書き出しました' : '「4. 次回の宣言」へ書き出しました');
   }
@@ -367,9 +411,18 @@ function main(user, writeUser, viewUser) {
   document.getElementById('task-major-add').addEventListener('click', addMajorTask);
 
   taskTreeEl.addEventListener('click', (event) => {
-    const leafBtn = event.target.closest('.seg-btn[data-act]');
-    if (leafBtn) {
-      runTaskLeafAction(Number(leafBtn.dataset.task), leafBtn.dataset.act);
+    const actBtn = event.target.closest('.seg-btn[data-act]');
+    if (actBtn) {
+      runTaskAction(Number(actBtn.dataset.task), actBtn.dataset.act);
+      return;
+    }
+
+    // 大・中タスクの「登録」。押した行にも完了 / 未達 / 削除を出す
+    const registerBtn = event.target.closest('[data-register]');
+    if (registerBtn) {
+      const path = findTask(Number(registerBtn.dataset.register));
+      if (path) (path.middle || path.major).registered = true;
+      renderTaskTree();
       return;
     }
 
@@ -407,6 +460,53 @@ function main(user, writeUser, viewUser) {
     if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
     addChildTask(Number(input.dataset.addInput));
   });
+
+  // ---------- 一時保存（localStorage / 日報本文の下書きとは別のキー） ----------
+  // 日報を送信してもタスクは消さない。日をまたいで持ち越すものなので、
+  // 消えるのは「タスクを破棄する」を押したときと、タスクが空になったときだけ
+  function saveTaskDraft() {
+    if (!taskDraftReady || adminView) return;
+
+    if (taskTree.length === 0) {
+      clearDraft(TASK_DRAFT_KEY);
+      return;
+    }
+    saveDraft(TASK_DRAFT_KEY, { tasks: taskTree, nextTaskId });
+  }
+
+  function restoreTaskDraft() {
+    const draft = adminView ? null : loadDraft(TASK_DRAFT_KEY);
+
+    if (isDraftEmpty(draft)) {
+      if (draft) clearDraft(TASK_DRAFT_KEY); // 中身が無い下書きは掃除しておく
+    } else {
+      taskTree.push(...draft.tasks);
+      // 連番も戻す。1から振り直すと、復元したタスクとIDがぶつかって別の行を消してしまう
+      nextTaskId = Number(draft.nextTaskId) || 1;
+      showTaskDraftBanner(draft);
+    }
+
+    taskDraftReady = true;
+    renderTaskTree();
+  }
+
+  function showTaskDraftBanner(draft) {
+    const savedAt = formatSavedAt(draft.savedAt);
+    document.getElementById('task-draft-banner-text').textContent = savedAt
+      ? `前回のタスクを復元しました（${savedAt} 時点）`
+      : '前回のタスクを復元しました';
+    taskDraftBannerEl.hidden = false;
+  }
+
+  document.getElementById('task-draft-discard').addEventListener('click', () => {
+    clearDraft(TASK_DRAFT_KEY);
+    taskTree.length = 0;
+    openAddId = null;
+    taskDraftBannerEl.hidden = true;
+    renderTaskTree();
+  });
+
+  restoreTaskDraft();
 
   // ---------- 左の余白へ回り込ませるための高さ合わせ ----------
   // ヘッダーの高さは折り返しで変わるので、実際に測ってCSS変数へ流し込む

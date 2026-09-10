@@ -10,6 +10,12 @@ export function draftKey(userId, editId) {
   return `gdr_draft:${userId}:${editId || 'new'}`;
 }
 
+// タスク管理は日報1件ではなく人に紐づく。日をまたいで持ち越すので、
+// 日報本文の下書き（送信すると消える）とはキーを分ける
+export function taskDraftKey(userId) {
+  return `gdr_tasks:${userId}`;
+}
+
 export function loadDraft(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -40,8 +46,9 @@ export function isDraftEmpty(draft) {
   const hasMetric = Object.values(draft.metrics || {}).some((v) => String(v || '').trim() !== '');
   const hasPmv = Object.keys(draft.pmv || {}).length > 0;
   const hasReview = (draft.reviews || []).some((r) => r.achievement || (r.reason || '').trim());
+  const hasTask = (draft.tasks || []).length > 0;
 
-  return !hasText && !hasMetric && !hasPmv && !hasReview;
+  return !hasText && !hasMetric && !hasPmv && !hasReview && !hasTask;
 }
 
 export function formatSavedAt(iso) {
