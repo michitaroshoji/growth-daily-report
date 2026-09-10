@@ -2284,6 +2284,18 @@ button.user-chip:hover {
   font-weight: 600;
 }
 
+/* 「登録」を押した大・中タスク。完了 / 未達の色が付くよう、末端と同じ帯を左に足す */
+.task-row.is-registered {
+  background: #f8fafc;
+  border-left: 3px solid var(--border);
+  border-radius: 7px;
+  padding: 3px 6px 3px 8px;
+}
+
+.task-row-middle.is-registered {
+  margin-left: 10px;
+}
+
 /* 完了 / 未達を押したあとの状態。色は前回の振り返りの行に合わせる */
 .task-row[data-state='完了'] {
   border-left-color: var(--success);
@@ -2334,6 +2346,22 @@ button.user-chip:hover {
 .task-icon-btn:hover {
   background: #f1f5f9;
   color: var(--text);
+}
+
+/* 削除ボタンのゴミ箱。色はボタンの文字色に追従させる（is-remove:hover で赤くなる） */
+.task-icon-svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.task-icon-btn.is-remove {
+  padding: 3px 5px;
 }
 
 .task-icon-btn.is-remove:hover {

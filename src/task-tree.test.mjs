@@ -8,74 +8,84 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  appendTaskLine,
-  findTaskPath,
-  majorHeadingLine,
-  removeTask,
-  taskChildLine,
-} from './task-tree.js';
+import { appendTaskLine, findTaskPath, removeTask, taskLine } from './task-tree.js';
 
 const TASK = { major: 'A社対応', middle: '見積', minor: '原価の確認' };
+const TASK_LINES = ['・A社対応', '　・見積', '　　・原価の確認'];
 
-test('見出しと子行の形', () => {
-  assert.equal(majorHeadingLine('A社対応'), '■ A社対応');
-  assert.equal(taskChildLine('見積', '原価の確認'), '　・見積：原価の確認');
+test('深さぶんだけ字下げした箇条書きになる', () => {
+  assert.equal(taskLine(0, 'A社対応'), '・A社対応');
+  assert.equal(taskLine(1, '見積'), '　・見積');
+  assert.equal(taskLine(2, '原価の確認'), '　　・原価の確認');
 });
 
-test('小タスクが無いときは中タスク名だけがぶら下がる', () => {
-  assert.equal(taskChildLine('見積', ''), '　・見積');
-  assert.equal(taskChildLine('見積', null), '　・見積');
+test('空欄への差し込みは、大タスクから3階層ぶんを足す', () => {
+  assert.equal(appendTaskLine('', TASK), TASK_LINES.join('\n'));
 });
 
-test('空欄への差し込みは、見出しごと新しく足す', () => {
-  assert.equal(appendTaskLine('', TASK), '■ A社対応\n　・見積：原価の確認');
+test('大タスクだけのときは1行、大＋中のときは2行', () => {
+  assert.equal(appendTaskLine('', { major: 'A社対応' }), '・A社対応');
+  assert.equal(appendTaskLine('', { major: 'A社対応', middle: '見積' }), '・A社対応\n　・見積');
 });
 
-test('同じ大タスクの見出しが既にあれば、その下に子行だけを足す', () => {
-  const before = '■ A社対応\n　・見積：原価の確認';
+test('登録済みの中タスクの下に、あとから小タスクを足せる', () => {
   assert.equal(
-    appendTaskLine(before, { major: 'A社対応', middle: '訪問', minor: '日程調整' }),
-    '■ A社対応\n　・見積：原価の確認\n　・訪問：日程調整'
+    appendTaskLine('・A社対応\n　・見積', TASK),
+    TASK_LINES.join('\n')
   );
 });
 
-test('別の大タスクは、見出しごと末尾に足す', () => {
-  const before = '■ A社対応\n　・見積：原価の確認';
+test('同じ大タスクが既にあれば、その配下に中タスクごと足す', () => {
   assert.equal(
-    appendTaskLine(before, { major: 'B社対応', middle: '請求', minor: '送付' }),
-    '■ A社対応\n　・見積：原価の確認\n■ B社対応\n　・請求：送付'
+    appendTaskLine(TASK_LINES.join('\n'), { major: 'A社対応', middle: '訪問', minor: '日程調整' }),
+    [...TASK_LINES, '　・訪問', '　　・日程調整'].join('\n')
   );
 });
 
-test('見出しが途中にあっても、その見出しの子行の末尾へ入る', () => {
-  const before = ['■ A社対応', '　・見積：原価の確認', '■ B社対応', '　・請求：送付'].join('\n');
+test('同じ中タスクが既にあれば、その下に小タスクだけを足す', () => {
+  assert.equal(
+    appendTaskLine(TASK_LINES.join('\n'), { major: 'A社対応', middle: '見積', minor: '原価の再確認' }),
+    [...TASK_LINES, '　　・原価の再確認'].join('\n')
+  );
+});
+
+test('別の大タスクは、末尾に新しく足す', () => {
+  assert.equal(
+    appendTaskLine(TASK_LINES.join('\n'), { major: 'B社対応', middle: '請求', minor: '送付' }),
+    [...TASK_LINES, '・B社対応', '　・請求', '　　・送付'].join('\n')
+  );
+});
+
+test('大タスクが途中にあっても、その配下の末尾へ入る', () => {
+  const before = [...TASK_LINES, '・B社対応', '　・請求'].join('\n');
   assert.equal(
     appendTaskLine(before, { major: 'A社対応', middle: '訪問', minor: '日程調整' }),
-    ['■ A社対応', '　・見積：原価の確認', '　・訪問：日程調整', '■ B社対応', '　・請求：送付'].join('\n')
+    [...TASK_LINES, '　・訪問', '　　・日程調整', '・B社対応', '　・請求'].join('\n')
   );
 });
 
 test('同じ行を二度押しても増えない', () => {
   const once = appendTaskLine('', TASK);
   assert.equal(appendTaskLine(once, TASK), once);
+  assert.equal(appendTaskLine(once, { major: 'A社対応' }), once);
+  assert.equal(appendTaskLine(once, { major: 'A社対応', middle: '見積' }), once);
 });
 
 test('ユーザーが自分で書いた文は消さず、その手前に差し込む', () => {
-  const before = ['■ A社対応', '　・見積：原価の確認', '所感：来週もう一度詰める'].join('\n');
+  const before = [...TASK_LINES, '所感：来週もう一度詰める'].join('\n');
   assert.equal(
     appendTaskLine(before, { major: 'A社対応', middle: '訪問', minor: '日程調整' }),
-    ['■ A社対応', '　・見積：原価の確認', '　・訪問：日程調整', '所感：来週もう一度詰める'].join('\n')
+    [...TASK_LINES, '　・訪問', '　　・日程調整', '所感：来週もう一度詰める'].join('\n')
   );
 });
 
-test('先に書かれていた文章は残したまま、末尾に見出しを足す', () => {
-  assert.equal(appendTaskLine('朝礼に参加した', TASK), '朝礼に参加した\n■ A社対応\n　・見積：原価の確認');
+test('先に書かれていた文章は残したまま、末尾に足す', () => {
+  assert.equal(appendTaskLine('朝礼に参加した', TASK), ['朝礼に参加した', ...TASK_LINES].join('\n'));
 });
 
 test('末尾の空行や、中身のない「・」だけの行は詰めてから足す', () => {
-  assert.equal(appendTaskLine('朝礼に参加した\n\n・', TASK), '朝礼に参加した\n■ A社対応\n　・見積：原価の確認');
-  assert.equal(appendTaskLine('・', TASK), '■ A社対応\n　・見積：原価の確認');
+  assert.equal(appendTaskLine('朝礼に参加した\n\n・', TASK), ['朝礼に参加した', ...TASK_LINES].join('\n'));
+  assert.equal(appendTaskLine('・', TASK), TASK_LINES.join('\n'));
 });
 
 // ---------- ツリーの操作 ----------

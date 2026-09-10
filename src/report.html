@@ -54,7 +54,7 @@
         <span class="date-note" id="date-note" hidden></span>
       </div>
 
-      <!-- ============ タスク管理（3階層 / このページ内だけの使い捨て） ============
+      <!-- ============ タスク管理（3階層 / この端末に一時保存） ============
            DOM上は「0 前回の振り返り」の直前に置く。
            画面が広いときだけ CSS で左の余白へ逃がす（style.css） -->
       <section class="card task-panel" id="task-panel">
@@ -62,9 +62,16 @@
           <span class="badge">TASK</span>タスク管理
           <span class="title-note">日報には保存されません</span>
         </h2>
+
+        <!-- 前回のタスクを復元したときだけ出る帯（下書きの帯と同じ見た目） -->
+        <div class="draft-banner" id="task-draft-banner" hidden>
+          <span id="task-draft-banner-text"></span>
+          <button type="button" class="draft-discard" id="task-draft-discard">タスクを破棄する</button>
+        </div>
+
         <p class="hint">
-          大 ＞ 中 ＞ 小 の順に足していきます。いちばん下のタスクで
-          「完了」は 1. 業務実績へ、「未達」は 4. 次回の宣言へ書き出します。
+          大 ＞ 中 ＞ 小 の順に足していきます。「登録」を押した大・中タスクと、
+          いちばん下の小タスクで「完了」は 1. 業務実績へ、「未達」は 4. 次回の宣言へ書き出します。
         </p>
 
         <div class="task-add">
