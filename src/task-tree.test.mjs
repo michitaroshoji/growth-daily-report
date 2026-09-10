@@ -8,7 +8,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { appendTaskLine, canAddChild, findTaskPath, removeTask, taskLine } from './task-tree.js';
+import {
+  appendTaskLine,
+  canAddChild,
+  findTaskPath,
+  openAddIdFor,
+  removeTask,
+  taskLine,
+} from './task-tree.js';
 
 const TASK = { major: 'A社対応', middle: '見積', minor: '原価の確認' };
 const TASK_LINES = ['・A社対応', '　・見積', '　　・原価の確認'];
@@ -164,4 +171,25 @@ test('最下層の小タスクと、消えたあとのタスクには足せな�
   const tree = sampleTree();
   assert.equal(canAddChild(findTaskPath(tree, 3).minor), false);
   assert.equal(canAddChild(null), false);
+});
+
+// ---------- 追加欄をどこに開くか ----------
+
+test('「＋中」「＋小」を押した親の追加欄が開く', () => {
+  const tree = sampleTree();
+  assert.equal(openAddIdFor(tree, 1), 1);
+  assert.equal(openAddIdFor(tree, 2), 2);
+});
+
+test('登録した行・小タスク・消えた行では開かない', () => {
+  const tree = sampleTree();
+  tree[0].registered = true;
+  assert.equal(openAddIdFor(tree, 1), null); // 登録済みの大タスク
+  assert.equal(openAddIdFor(tree, 3), null); // 最下層の小タスク
+  assert.equal(openAddIdFor(tree, 99), null); // 消えたあとのタスク
+});
+
+test('どこも開いていない状態（null）は、そのまま閉じたまま', () => {
+  assert.equal(openAddIdFor(sampleTree(), null), null);
+  assert.equal(openAddIdFor(sampleTree(), undefined), null);
 });

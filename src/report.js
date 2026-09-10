@@ -16,7 +16,7 @@ import {
   isDraftEmpty,
   formatSavedAt,
 } from './draft.js';
-import { appendTaskLine, canAddChild, findTaskPath, removeTask } from './task-tree.js';
+import { appendTaskLine, canAddChild, findTaskPath, openAddIdFor, removeTask } from './task-tree.js';
 import {
   escapeHtml,
   formatYmd,
@@ -258,11 +258,14 @@ function main(user, writeUser, viewUser) {
   function removeTaskNode(id) {
     removeTask(taskTree, id);
     // 消したタスクの下で開いていた追加欄は、行ごと無くなるので閉じる
-    if (openAddId !== null && !findTask(openAddId)) openAddId = null;
+    openAddId = openAddIdFor(taskTree, openAddId);
   }
 
   // ---------- 描画 ----------
   function renderTaskTree() {
+    // 描き直すと中身ごと入れ替わるので、ツリーを操作していたかを先に見ておく
+    const wasInTree = taskTreeEl.contains(document.activeElement);
+
     taskTreeEl.innerHTML = taskTree.map(taskMajorHtml).join('');
     taskEmptyEl.hidden = taskTree.length > 0;
 
@@ -270,8 +273,9 @@ function main(user, writeUser, viewUser) {
     // 描き直すこの場所で一時保存を明示的に呼ぶ
     saveTaskDraft();
 
-    // 開いている追加欄は、描き直したあとも続けて打てるようにフォーカスを戻す
-    const openInput = taskTreeEl.querySelector('[data-add-input]');
+    // 開いている追加欄は、描き直したあとも続けて打てるようにフォーカスを戻す。
+    // ツリーの外（大タスクの入力欄）で打っていたときは、カーソルを動かさない
+    const openInput = wasInTree ? taskTreeEl.querySelector('[data-add-input]') : null;
     if (openInput) openInput.focus();
   }
 
@@ -351,9 +355,10 @@ function main(user, writeUser, viewUser) {
     taskTree.push(major);
     taskMajorInputEl.value = '';
 
-    // 大タスクだけでも「登録」すれば書き出せるが、たいていは中タスクを続けて打つので開けておく
-    openAddId = major.id;
+    // 中タスクを足すのは、下に並んだ大タスクの「＋中」から。
+    // ここでは追加欄を開かず、そのまま次の大タスクを続けて打てるようにする
     renderTaskTree();
+    taskMajorInputEl.focus();
   }
 
   function addChildTask(parentId) {
@@ -428,7 +433,7 @@ function main(user, writeUser, viewUser) {
       const id = Number(registerBtn.dataset.register);
       const path = findTask(id);
       if (path) (path.middle || path.major).registered = true;
-      if (openAddId === id) openAddId = null;
+      openAddId = openAddIdFor(taskTree, openAddId); // 登録した行の追加欄は閉じる
       renderTaskTree();
       return;
     }
@@ -436,7 +441,7 @@ function main(user, writeUser, viewUser) {
     const addBtn = event.target.closest('[data-add]');
     if (addBtn) {
       const id = Number(addBtn.dataset.add);
-      openAddId = openAddId === id ? null : id; // もう一度押したら閉じる
+      openAddId = openAddId === id ? null : openAddIdFor(taskTree, id); // もう一度押したら閉じる
       renderTaskTree();
       return;
     }
