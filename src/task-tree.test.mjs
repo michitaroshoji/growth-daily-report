@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import {
   appendTaskLine,
   canAddChild,
+  canRegister,
   findTaskPath,
   openAddIdFor,
   removeTask,
@@ -171,6 +172,27 @@ test('最下層の小タスクと、消えたあとのタスクには足せな�
   const tree = sampleTree();
   assert.equal(canAddChild(findTaskPath(tree, 3).minor), false);
   assert.equal(canAddChild(null), false);
+});
+
+// ---------- 「登録」を出すかどうか ----------
+
+test('下の階層を持たない大・中タスクにだけ「登録」を出す', () => {
+  const tree = sampleTree();
+  assert.equal(canRegister(findTaskPath(tree, 4).middle), true); // 小タスクのない中タスク
+  assert.equal(canRegister(findTaskPath(tree, 5).major), true); // 中タスクのない大タスク
+});
+
+test('中・小タスクを足した上位タスクからは「登録」が消える', () => {
+  const tree = sampleTree();
+  assert.equal(canRegister(findTaskPath(tree, 1).major), false); // 中タスクを持つ大タスク
+  assert.equal(canRegister(findTaskPath(tree, 2).middle), false); // 小タスクを持つ中タスク
+});
+
+test('登録済みのタスクと、消えたあとのタスクには出さない', () => {
+  const tree = sampleTree();
+  tree[1].registered = true;
+  assert.equal(canRegister(findTaskPath(tree, 5).major), false);
+  assert.equal(canRegister(null), false);
 });
 
 // ---------- 追加欄をどこに開くか ----------

@@ -40,6 +40,12 @@ export function canAddChild(task) {
   return Boolean(task) && !task.registered && Array.isArray(task.children);
 }
 
+// 「登録」を出すのは、まだ登録しておらず、下の階層をひとつも持っていないタスクだけ。
+// 子を足したら書き出しは子の「完了 / 未達」からになるので、親の「登録」は消す
+export function canRegister(task) {
+  return Boolean(task) && !task.registered && !(task.children && task.children.length > 0);
+}
+
 // 「＋中」「＋小」で開く追加欄の親ID。追加欄は同時にひとつだけ開く。
 // 開けるのは、いまツリーにいて子を持てる親だけ。開けないときは null（＝閉じる）を返す。
 // 大タスクを足しただけでは開かない（中タスクは、並んだ大タスクの「＋中」から足す）
