@@ -40,6 +40,16 @@ export function canAddChild(task) {
   return Boolean(task) && !task.registered && Array.isArray(task.children);
 }
 
+// 「＋中」「＋小」で開く追加欄の親ID。追加欄は同時にひとつだけ開く。
+// 開けるのは、いまツリーにいて子を持てる親だけ。開けないときは null（＝閉じる）を返す。
+// 大タスクを足しただけでは開かない（中タスクは、並んだ大タスクの「＋中」から足す）
+export function openAddIdFor(tree, id) {
+  if (id === null || id === undefined) return null;
+  const path = findTaskPath(tree, id);
+  if (!path) return null;
+  return canAddChild(path.minor || path.middle || path.major) ? id : null;
+}
+
 // id のタスクを（子ごと）ツリーから取り除く。取り除けたら true
 export function removeTask(tree, id) {
   const path = findTaskPath(tree, id);
