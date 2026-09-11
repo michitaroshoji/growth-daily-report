@@ -126,17 +126,25 @@ function dropTrailingBlank(lines) {
   return body;
 }
 
-// text に task（{ major, middle, minor }）を差し込んだ文字列を返す。
-// 上の階層から順にたどり、既にある行はそのまま使って、足りない階層だけを足す。
-// 元の text は書き換えない
-export function appendTaskLine(text, task) {
-  // 名前が空になった時点で打ち切る（大だけ／大＋中／大＋中＋小 の3通り）
+// task を上の階層から順に並べた名前の配列にする。
+// { major, middle, minor }（タスク管理の3階層）と、任意の深さの名前の配列の両方を受け取る。
+// 名前が空になった時点で打ち切る（大だけ／大＋中／大＋中＋小 の3通り、など）
+function taskNames(task) {
+  const raw = Array.isArray(task) ? task : [task.major, task.middle, task.minor];
   const names = [];
-  for (const raw of [task.major, task.middle, task.minor]) {
-    const name = String(raw ?? '').trim();
+  for (const value of raw) {
+    const name = String(value ?? '').trim();
     if (!name) break;
     names.push(name);
   }
+  return names;
+}
+
+// text に task（{ major, middle, minor } か、任意の深さの名前の配列）を差し込んだ文字列を返す。
+// 上の階層から順にたどり、既にある行はそのまま使って、足りない階層だけを足す。
+// 元の text は書き換えない
+export function appendTaskLine(text, task) {
+  const names = taskNames(task);
 
   const lines = String(text ?? '').split('\n');
   if (names.length === 0) return lines.join('\n');
