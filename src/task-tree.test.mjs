@@ -79,6 +79,38 @@ test('同じ行を二度押しても増えない', () => {
   assert.equal(appendTaskLine(once, { major: 'A社対応', middle: '見積' }), once);
 });
 
+// ---------- 名前の配列での差し込み（前回の振り返りの「達成」から使う） ----------
+
+test('名前の配列でも、{ major, middle, minor } と同じ行になる', () => {
+  assert.equal(appendTaskLine('', ['A社対応', '見積', '原価の確認']), TASK_LINES.join('\n'));
+  assert.equal(appendTaskLine('', ['A社対応']), '・A社対応');
+});
+
+test('3段より深い行は、深さぶんだけ字下げして足す', () => {
+  assert.equal(
+    appendTaskLine('', ['A社対応', '見積', '原価の確認', '仕入先へ確認', '返信待ち']),
+    [...TASK_LINES, '　　　・仕入先へ確認', '　　　　・返信待ち'].join('\n')
+  );
+});
+
+test('3段より深い行でも、既にある階層の下に足りないぶんだけ足す', () => {
+  assert.equal(
+    appendTaskLine(TASK_LINES.join('\n'), ['A社対応', '見積', '原価の確認', '仕入先へ確認']),
+    [...TASK_LINES, '　　　・仕入先へ確認'].join('\n')
+  );
+});
+
+test('名前の配列でも、同じ行を二度渡せば増えない', () => {
+  const once = appendTaskLine('', ['A社対応', '見積', '原価の確認', '仕入先へ確認']);
+  assert.equal(appendTaskLine(once, ['A社対応', '見積', '原価の確認', '仕入先へ確認']), once);
+  assert.equal(appendTaskLine(once, ['A社対応', '見積']), once);
+});
+
+test('名前が空になったところで打ち切る', () => {
+  assert.equal(appendTaskLine('', ['A社対応', '', '原価の確認']), '・A社対応');
+  assert.equal(appendTaskLine('', []), '');
+});
+
 test('ユーザーが自分で書いた文は消さず、その手前に差し込む', () => {
   const before = [...TASK_LINES, '所感：来週もう一度詰める'].join('\n');
   assert.equal(

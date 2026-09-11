@@ -747,17 +747,37 @@ function main(user, writeUser, viewUser) {
     row.dataset.state = value;
     row.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-active', b === btn));
 
+    // 「達成」はタスク管理の「完了」と同じ扱いにして、その行を「1. 業務実績」へ書き出す。
+    // 押し直して「達成」から外したときの取り消しはしない（手で消してもらう）
+    if (value === '達成') {
+      factEl.value = appendTaskLine(factEl.value, lineNamesOf(index));
+      factEl.dispatchEvent(new Event('input', { bubbles: true })); // 自動リサイズを追従させる
+      showToast('「1. 業務実績」へ書き出しました');
+    }
+
     syncWhyBlocks();
     updateAutoMetrics();
     scheduleDraftSave();
   });
 
+  // その行を「大 → 中 → 小」の並びにした名前の配列。
+  // 先頭が一番上の見出しで、末尾がその行自身。見出しの無い行はその行だけになる
+  function lineNamesOf(index) {
+    const names = [commitLines[index].text];
+    let depth = commitLines[index].depth;
+    for (let i = index - 1; i >= 0 && depth > 0; i -= 1) {
+      if (commitLines[i].depth < depth) {
+        names.unshift(commitLines[i].text);
+        depth = commitLines[i].depth;
+      }
+    }
+    return names;
+  }
+
   // その行の親（見出し）テキスト。転記先で何の話か分かるように添える
   function parentTextOf(index) {
-    for (let i = index - 1; i >= 0; i -= 1) {
-      if (commitLines[i].depth < commitLines[index].depth) return commitLines[i].text;
-    }
-    return '';
+    const names = lineNamesOf(index);
+    return names.length > 1 ? names[names.length - 2] : '';
   }
 
   // 「未達成 / 一部達成」の行だけ、要因分析の入力枠を出し入れする。
