@@ -96,23 +96,30 @@ export function refreshAutoResize() {
 //
 //   「中止」は“やらないと決めた”タスクなので、分母から丸ごと外す。
 //   達成率を下げも上げもしない扱いにする。
+//
+//   「次回」は“次回の宣言へ持ち越した”タスク。次の日報でもう一度評価するので、
+//   ここで数えると二重に効いてしまう。中止と同じく分母から外す。
 // ============================================================
 export const CANCELLED = '中止';
-export const ACHIEVEMENTS = ['達成', '一部達成', '未達成', CANCELLED];
+export const CARRIED_OVER = '次回';
+export const ACHIEVEMENTS = ['達成', '一部達成', '未達成', CANCELLED, CARRIED_OVER];
+
+// 達成率の分母から外す評価
+const EXCLUDED_ACHIEVEMENTS = [CANCELLED, CARRIED_OVER];
 
 const ACHIEVEMENT_WEIGHT = { 達成: 1, 一部達成: 0.5, 未達成: 0 };
 
 export function summarizeTasks(reviews) {
   const all = reviews || [];
-  const counts = { 達成: 0, 一部達成: 0, 未達成: 0, [CANCELLED]: 0 };
+  const counts = { 達成: 0, 一部達成: 0, 未達成: 0, [CANCELLED]: 0, [CARRIED_OVER]: 0 };
   let score = 0;
 
   all.forEach((row) => {
     if (row.achievement in counts) counts[row.achievement] += 1;
   });
 
-  // 中止の行は集計対象から除く（未評価の行は「残りいくつ」を出すため分母に残す）
-  const rows = all.filter((row) => row.achievement !== CANCELLED);
+  // 中止・次回の行は集計対象から除く（未評価の行は「残りいくつ」を出すため分母に残す）
+  const rows = all.filter((row) => !EXCLUDED_ACHIEVEMENTS.includes(row.achievement));
   rows.forEach((row) => {
     score += ACHIEVEMENT_WEIGHT[row.achievement] ?? 0;
   });
@@ -122,6 +129,7 @@ export function summarizeTasks(reviews) {
     score, // 重み付けした達成数（例: 4.5）
     counts,
     cancelled: counts[CANCELLED],
+    carriedOver: counts[CARRIED_OVER],
     rate: rows.length > 0 ? score / rows.length : null,
   };
 }
