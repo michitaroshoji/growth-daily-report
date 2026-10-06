@@ -103,7 +103,6 @@ function main(user, writeUser, viewUser) {
   const taskPanelEl = document.getElementById('task-panel');
   const taskTreeEl = document.getElementById('task-tree');
   const taskEmptyEl = document.getElementById('task-empty');
-  const taskDraftBannerEl = document.getElementById('task-draft-banner');
   const taskMajorInputEl = document.getElementById('task-major-input');
 
   const metricsInputsEl = document.getElementById('metrics-inputs');
@@ -577,7 +576,7 @@ function main(user, writeUser, viewUser) {
 
   // ---------- 一時保存（localStorage / 日報本文の下書きとは別のキー） ----------
   // 日報を送信してもタスクは消さない。日をまたいで持ち越すものなので、
-  // 消えるのは「タスクを破棄する」を押したときと、タスクが空になったときだけ
+  // 消えるのはタスクが空になったときだけ
   function saveTaskDraft() {
     if (!taskDraftReady || adminView) return;
 
@@ -597,28 +596,11 @@ function main(user, writeUser, viewUser) {
       taskTree.push(...draft.tasks);
       // 連番も戻す。1から振り直すと、復元したタスクとIDがぶつかって別の行を消してしまう
       nextTaskId = Number(draft.nextTaskId) || 1;
-      showTaskDraftBanner(draft);
     }
 
     taskDraftReady = true;
     renderTaskTree();
   }
-
-  function showTaskDraftBanner(draft) {
-    const savedAt = formatSavedAt(draft.savedAt);
-    document.getElementById('task-draft-banner-text').textContent = savedAt
-      ? `前回のタスクを復元しました（${savedAt} 時点）`
-      : '前回のタスクを復元しました';
-    taskDraftBannerEl.hidden = false;
-  }
-
-  document.getElementById('task-draft-discard').addEventListener('click', () => {
-    clearDraft(TASK_DRAFT_KEY);
-    taskTree.length = 0;
-    openAddId = null;
-    taskDraftBannerEl.hidden = true;
-    renderTaskTree();
-  });
 
   restoreTaskDraft();
 
