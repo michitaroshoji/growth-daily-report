@@ -919,6 +919,12 @@ textarea.is-autoresize {
   text-decoration: line-through;
 }
 
+/* 次回：次回の宣言へ持ち越した行。達成/未達成と被らないよう、アプリの基調色（青）にする */
+.commit-line[data-state='次回'] {
+  border-left-color: var(--primary);
+  background: #eff6ff;
+}
+
 .commit-line-text {
   margin: 0;
   flex: 1;
@@ -976,6 +982,11 @@ textarea.is-autoresize {
 
 .seg-btn.is-active[data-value='中止'] {
   background: var(--text-muted);
+  color: #fff;
+}
+
+.seg-btn.is-active[data-value='次回'] {
+  background: var(--primary);
   color: #fff;
 }
 
@@ -2305,6 +2316,48 @@ button.user-chip:hover {
 .task-row[data-state='未達'] {
   border-left-color: var(--error);
   background: #fef2f2;
+}
+
+/* ---------- 大タスクの並び替え（ドラッグ＆ドロップ） ---------- */
+/* 大タスクの左端のつまみ。ここを掴んだときだけグループごと動かせる */
+.task-drag-handle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-left: -4px;
+  padding: 2px 0;
+  color: var(--text-muted);
+  cursor: grab;
+  border-radius: 4px;
+}
+
+.task-drag-handle:hover {
+  color: var(--text);
+  background: #f1f5f9;
+}
+
+.task-drag-handle:active {
+  cursor: grabbing;
+}
+
+.task-drag-svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* 掴んでいるグループは薄くして、落とす位置を青い線で示す */
+.task-group.is-dragging {
+  opacity: 0.4;
+}
+
+.task-group.is-drop-before {
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+
+.task-group.is-drop-after {
+  box-shadow: inset 0 -2px 0 var(--primary);
 }
 
 /* ---------- 行の操作ボタン ---------- */

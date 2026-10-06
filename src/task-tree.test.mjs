@@ -13,6 +13,7 @@ import {
   canAddChild,
   canRegister,
   findTaskPath,
+  moveMajorTask,
   openAddIdFor,
   removeTask,
   taskLine,
@@ -246,4 +247,53 @@ test('登録した行・小タスク・消えた行では開かない', () => {
 test('どこも開いていない状態（null）は、そのまま閉じたまま', () => {
   assert.equal(openAddIdFor(sampleTree(), null), null);
   assert.equal(openAddIdFor(sampleTree(), undefined), null);
+});
+
+// ---------- 大タスクの並び替え（ドラッグ＆ドロップ） ----------
+
+function threeMajors() {
+  return [...sampleTree(), { id: 6, name: 'C社対応', children: [] }];
+}
+
+const majorNames = (tree) => tree.map((row) => row.name);
+
+test('下の大タスクを、上の大タスクの手前へ動かせる', () => {
+  const tree = threeMajors();
+  assert.equal(moveMajorTask(tree, 6, 1), true);
+  assert.deepEqual(majorNames(tree), ['C社対応', 'A社対応', 'B社対応']);
+});
+
+test('上の大タスクを、下の大タスクの手前へ動かせる', () => {
+  const tree = threeMajors();
+  assert.equal(moveMajorTask(tree, 1, 6), true);
+  assert.deepEqual(majorNames(tree), ['B社対応', 'A社対応', 'C社対応']);
+});
+
+test('落とし先が null なら末尾へ動く', () => {
+  const tree = threeMajors();
+  assert.equal(moveMajorTask(tree, 1, null), true);
+  assert.deepEqual(majorNames(tree), ['B社対応', 'C社対応', 'A社対応']);
+});
+
+test('中・小タスクは大タスクと一緒に動く', () => {
+  const tree = threeMajors();
+  moveMajorTask(tree, 1, null);
+  assert.equal(findTaskPath(tree, 3).major.name, 'A社対応');
+  assert.deepEqual(tree[2].children.map((row) => row.name), ['見積', '訪問']);
+});
+
+test('自分の直前・直後へ落としても並びは変わらない', () => {
+  const tree = threeMajors();
+  assert.equal(moveMajorTask(tree, 5, 5), false);
+  assert.equal(moveMajorTask(tree, 5, 6), false);
+  assert.equal(moveMajorTask(tree, 6, null), false);
+  assert.deepEqual(majorNames(tree), ['A社対応', 'B社対応', 'C社対応']);
+});
+
+test('大タスクでないid・消えたidは動かさない', () => {
+  const tree = threeMajors();
+  assert.equal(moveMajorTask(tree, 2, 6), false); // 中タスク
+  assert.equal(moveMajorTask(tree, 99, 1), false);
+  assert.equal(moveMajorTask(tree, 1, 99), false);
+  assert.deepEqual(majorNames(tree), ['A社対応', 'B社対応', 'C社対応']);
 });

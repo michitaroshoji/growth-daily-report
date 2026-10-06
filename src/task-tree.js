@@ -67,6 +67,26 @@ export function removeTask(tree, id) {
   return true;
 }
 
+// 大タスク id を、大タスク beforeId の直前へ動かす（ドラッグでの並び替え）。
+// beforeId が null なら末尾へ。中・小タスクは大タスクごと一緒に動く。
+// 並びが変わったら true、動かせない／動かしても同じ並びなら false
+export function moveMajorTask(tree, id, beforeId) {
+  const from = tree.findIndex((major) => major.id === id);
+  if (from < 0 || id === beforeId) return false;
+
+  const before = beforeId === null || beforeId === undefined
+    ? tree.length
+    : tree.findIndex((major) => major.id === beforeId);
+  if (before < 0) return false;
+
+  // 自分の直前・直後へ落としても並びは変わらない
+  if (before === from || before === from + 1) return false;
+
+  const [major] = tree.splice(from, 1);
+  tree.splice(before > from ? before - 1 : before, 0, major);
+  return true;
+}
+
 // ============================================================
 // 日報テキストへの差し込み
 // ============================================================

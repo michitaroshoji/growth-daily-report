@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { departmentName, hiddenMemberIds, visibleMembers } from './util.js';
+import { departmentName, hiddenMemberIds, summarizeTasks, visibleMembers } from './util.js';
 
 test('部署が埋め込まれていれば、その名前を返す', () => {
   assert.equal(departmentName({ name: '山田', departments: { name: '営業部' } }), '営業部');
@@ -57,4 +57,26 @@ test('取得から外すIDは、非表示の人のぶんだけ返る', () => {
   assert.deepEqual(hiddenMemberIds(MEMBERS), ['u2']);
   assert.deepEqual(hiddenMemberIds([]), []);
   assert.deepEqual(hiddenMemberIds(null), []);
+});
+
+// ---------- タスク達成の集計 ----------
+
+test('「次回」は中止と同じく、達成率の分母から外す', () => {
+  const stats = summarizeTasks([
+    { achievement: '達成' },
+    { achievement: '一部達成' },
+    { achievement: '次回' },
+    { achievement: '中止' },
+  ]);
+  assert.equal(stats.total, 2);
+  assert.equal(stats.score, 1.5);
+  assert.equal(stats.rate, 0.75);
+  assert.equal(stats.carriedOver, 1);
+  assert.equal(stats.cancelled, 1);
+});
+
+test('「次回」だけなら達成率は出さない', () => {
+  const stats = summarizeTasks([{ achievement: '次回' }]);
+  assert.equal(stats.total, 0);
+  assert.equal(stats.rate, null);
 });

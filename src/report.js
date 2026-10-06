@@ -21,6 +21,7 @@ import {
   canAddChild,
   canRegister,
   findTaskPath,
+  moveMajorTask,
   openAddIdFor,
   removeTask,
 } from './task-tree.js';
@@ -38,6 +39,7 @@ import {
   trimDecimal,
   ACHIEVEMENTS,
   CANCELLED,
+  CARRIED_OVER,
   showToast,
 } from './util.js';
 
@@ -116,7 +118,13 @@ function main(user, writeUser, viewUser) {
   const metricMessage = document.getElementById('metric-message');
 
   // 選択肢は util.js を唯一の定義元にする（集計側と食い違わせないため）
-  const SHORT_LABEL = { 達成: '達成', 一部達成: '一部', 未達成: '未達', [CANCELLED]: '中止' };
+  const SHORT_LABEL = {
+    達成: '達成',
+    一部達成: '一部',
+    未達成: '未達',
+    [CANCELLED]: '中止',
+    [CARRIED_OVER]: '次回',
+  };
   const INDENT_PX = 16; // 1段あたりの見た目のインデント幅
   const BULLET_FIELDS = ['fact', 'problem', 'why', 'commitment', 'action', 'insight'];
 
@@ -258,6 +266,14 @@ function main(user, writeUser, viewUser) {
       <path d="M4 6.5h16M9.5 6.5V4h5v2.5M9.5 10.5v7M14.5 10.5v7M6.5 6.5l1 13.5h9l1-13.5" />
     </svg>`;
 
+  // 大タスクの並び替えに使う「⠿」のつまみ。ゴミ箱と同じく図形を直接埋め込む
+  const DRAG_ICON = `
+    <svg class="task-drag-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
+      <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
+      <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
+    </svg>`;
+
   function findTask(id) {
     return findTaskPath(taskTree, id);
   }
@@ -287,9 +303,12 @@ function main(user, writeUser, viewUser) {
   }
 
   function taskMajorHtml(major) {
+    const handleHtml = `
+      <span class="task-drag-handle" draggable="true" data-drag="${major.id}"
+            title="ドラッグで並び替え">${DRAG_ICON}</span>`;
     return `
-      <div class="task-group">
-        ${taskRowHtml(major, 'task-row-major', '大タスク', '＋中')}
+      <div class="task-group" data-major="${major.id}">
+        ${taskRowHtml(major, 'task-row-major', '大タスク', '＋中', handleHtml)}
         ${major.children.map(taskMiddleHtml).join('')}
         ${taskAddInputHtml(major, '中タスクを追加', false)}
       </div>`;
@@ -304,8 +323,9 @@ function main(user, writeUser, viewUser) {
 
   // 大・中タスクの行。「登録」を押すまでは追加 / 削除だけを出し、
   // 登録したら小タスクと同じ「完了 / 未達 / 削除」に入れ替える。
-  // 下の階層を足したあとは、書き出しがその子の側に移るので「登録」は出さない
-  function taskRowHtml(task, rowClass, label, addLabel) {
+  // 下の階層を足したあとは、書き出しがその子の側に移るので「登録」は出さない。
+  // handleHtml は行の左端に置くもの（大タスクの並び替えのつまみ）
+  function taskRowHtml(task, rowClass, label, addLabel, handleHtml = '') {
     const registerHtml = canRegister(task)
       ? `<button type="button" class="task-icon-btn" data-register="${task.id}">登録</button>`
       : '';
@@ -318,6 +338,7 @@ function main(user, writeUser, viewUser) {
 
     return `
       <div class="task-row ${rowClass}${task.registered ? ' is-registered' : ''}"${stateAttr(task)}>
+        ${handleHtml}
         <p class="task-row-text">${escapeHtml(task.name)}</p>
         ${controls}
       </div>`;
@@ -487,6 +508,72 @@ function main(user, writeUser, viewUser) {
     // シフト＋エンターは、足したタスクの下の階層へ入力欄を移す（中タスク → 小タスク）
     addChildTask(Number(input.dataset.addInput), event.shiftKey);
   });
+
+  // ---------- 大タスクの並び替え（ドラッグ＆ドロップ） ----------
+  // 左端のつまみを掴んだときだけ動かす。中・小タスクは大タスクごと一緒に動く
+  let dragMajorId = null; // 掴んでいる大タスクのID。掴んでいなければ null
+  let dropBeforeId; // 落とす位置（この大タスクの直前 / null は末尾）。未定なら undefined
+
+  function clearDropMarks() {
+    taskTreeEl
+      .querySelectorAll('.is-drop-before, .is-drop-after')
+      .forEach((el) => el.classList.remove('is-drop-before', 'is-drop-after'));
+  }
+
+  function endTaskDrag() {
+    clearDropMarks();
+    taskTreeEl.querySelectorAll('.is-dragging').forEach((el) => el.classList.remove('is-dragging'));
+    dragMajorId = null;
+    dropBeforeId = undefined;
+  }
+
+  // 文字列を選んでドラッグしたときは target がテキストノードになるので、要素だけを見る
+  function closestIn(event, selector) {
+    return event.target instanceof Element ? event.target.closest(selector) : null;
+  }
+
+  taskTreeEl.addEventListener('dragstart', (event) => {
+    const handle = closestIn(event, '[data-drag]');
+    if (!handle) return;
+
+    const group = handle.closest('.task-group');
+    dragMajorId = Number(handle.dataset.drag);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', ''); // Firefox はデータが無いとドラッグを始めない
+    event.dataTransfer.setDragImage(group, 0, 0); // つまみだけでなくグループごと掴んで見せる
+    group.classList.add('is-dragging');
+  });
+
+  // グループの上半分なら直前へ、下半分なら直後（＝次の大タスクの直前）へ落とす
+  taskTreeEl.addEventListener('dragover', (event) => {
+    if (dragMajorId === null) return;
+    event.preventDefault(); // これが無いと drop が来ない
+    event.dataTransfer.dropEffect = 'move';
+
+    const group = closestIn(event, '.task-group');
+    if (!group) return; // グループの隙間では、直前に示した位置のままにする
+
+    const rect = group.getBoundingClientRect();
+    const upper = event.clientY < rect.top + rect.height / 2;
+    const next = group.nextElementSibling;
+    dropBeforeId = upper ? Number(group.dataset.major) : next ? Number(next.dataset.major) : null;
+
+    clearDropMarks();
+    group.classList.add(upper ? 'is-drop-before' : 'is-drop-after');
+  });
+
+  // 描き直すと掴んでいた要素ごと入れ替わり、dragend が届かないことがあるので、ここで後片付けする
+  taskTreeEl.addEventListener('drop', (event) => {
+    if (dragMajorId === null) return;
+    event.preventDefault();
+
+    const moved = dropBeforeId !== undefined && moveMajorTask(taskTree, dragMajorId, dropBeforeId);
+    endTaskDrag();
+    if (moved) renderTaskTree();
+  });
+
+  // ツリーの外で離した・Esc で取りやめたとき
+  taskTreeEl.addEventListener('dragend', endTaskDrag);
 
   // ---------- 一時保存（localStorage / 日報本文の下書きとは別のキー） ----------
   // 日報を送信してもタスクは消さない。日をまたいで持ち越すものなので、
@@ -755,6 +842,14 @@ function main(user, writeUser, viewUser) {
       showToast('「1. 業務実績」へ書き出しました');
     }
 
+    // 「次回」はタスク管理の「未達」と同じ扱いにして、その行を「4. 次回の宣言」へ書き出す。
+    // 取り消しをしないのは「達成」と同じ
+    if (value === CARRIED_OVER) {
+      commitmentEl.value = appendTaskLine(commitmentEl.value, lineNamesOf(index));
+      commitmentEl.dispatchEvent(new Event('input', { bubbles: true })); // 自動リサイズを追従させる
+      showToast('「4. 次回の宣言」へ書き出しました');
+    }
+
     syncWhyBlocks();
     updateAutoMetrics();
     scheduleDraftSave();
@@ -781,7 +876,8 @@ function main(user, writeUser, viewUser) {
   }
 
   // 「未達成 / 一部達成」の行だけ、要因分析の入力枠を出し入れする。
-  // 「中止」はやらないと決めたタスクなので、理由を聞かずにそのまま飛ばす
+  // 「中止」はやらないと決めたタスク、「次回」は次回へ持ち越したタスクなので、
+  // どちらも理由を聞かずにそのまま飛ばす
   function syncWhyBlocks() {
     commitLines.forEach((row, i) => {
       const state = lineStates[i];
@@ -1301,10 +1397,10 @@ function main(user, writeUser, viewUser) {
   function summarizeAchievement() {
     const leaves = leafIndexes();
     if (leaves.length === 0) return null;
-    // 中止は達成/未達成のどちらでもないので、集約の判断材料から外す
+    // 中止・次回は達成/未達成のどちらでもないので、集約の判断材料から外す
     const values = leaves
       .map((i) => lineStates[i].achievement)
-      .filter((v) => v !== CANCELLED);
+      .filter((v) => v !== CANCELLED && v !== CARRIED_OVER);
     if (values.length === 0) return null;
     if (values.every((v) => v === '達成')) return '達成できた';
     if (values.every((v) => v === '未達成')) return 'できなかった';

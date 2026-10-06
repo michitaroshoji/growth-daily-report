@@ -109,6 +109,7 @@ function main(user) {
     一部達成: 'background-color: #fef3c7; color: #92400e;',
     未達成: 'background-color: #fee2e2; color: #991b1b;',
     中止: 'background-color: #f3f4f6; color: #374151;',
+    次回: 'background-color: #dbeafe; color: #1e40af;',
   };
 
   // 行ごとの評価が無かった頃の集約表現。同じ色に寄せる

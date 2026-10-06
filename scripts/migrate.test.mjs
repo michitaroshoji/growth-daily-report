@@ -59,7 +59,7 @@ test('版番号が重複していたら止まる', () => {
   );
 });
 
-test('初回実行では v11〜v15 の5つだけが、この順に流れる', () => {
+test('初回実行では v11〜v16 の6つだけが、この順に流れる', () => {
   const { migrations } = listMigrations(sqlFiles());
 
   assert.deepEqual(
@@ -70,6 +70,7 @@ test('初回実行では v11〜v15 の5つだけが、この順に流れる', ()
       'schema_v13_release_notes.sql',
       'schema_v14_hidden_users.sql',
       'schema_v15_signup_allowlist.sql',
+      'schema_v16_carried_over.sql',
     ]
   );
 });
