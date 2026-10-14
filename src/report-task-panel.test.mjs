@@ -6,6 +6,7 @@
 // ブラウザは起動しない。HTML と JS を読んで、崩れると困る前提だけを確かめる。
 //   ・「前回のタスクを復元しました」の帯と「タスクを破棄する」ボタンが無いこと
 //   ・タスクの追加欄とツリーは残っていること
+//   ・大タスクの折りたたみボタンが、並び替えのつまみとぶつからないこと
 // ============================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,4 +44,20 @@ test('タスクの追加欄とツリーは残っている', () => {
   assert.ok(panel.includes('id="task-major-input"'));
   assert.ok(panel.includes('id="task-major-add"'));
   assert.ok(panel.includes('id="task-tree"'));
+});
+
+test('大タスクに折りたたみボタンがあり、最初は開いている', () => {
+  assert.ok(js.includes('data-toggle="${major.id}"'));
+  assert.ok(js.includes('aria-expanded="${!collapsed}"'));
+  // 畳んだ状態は一時保存せず、画面を開いたときは空（＝全部開いている）から始める
+  assert.ok(js.includes('const collapsedIds = new Set();'));
+  assert.ok(!/saveDraft\([^)]*collapsed/.test(js));
+});
+
+test('折りたたみボタンは並び替えのつまみと別の要素になっている', () => {
+  // つまみ（draggable）の中に入れると、クリックとドラッグがぶつかる
+  const handle = /<span class="task-drag-handle"[\s\S]*?<\/span>/.exec(js);
+  assert.ok(handle, '並び替えのつまみが見つからない');
+  assert.ok(!handle[0].includes('data-toggle'));
+  assert.ok(!/class="task-toggle"[^>]*draggable/.test(js));
 });

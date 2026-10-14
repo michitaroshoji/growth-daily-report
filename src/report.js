@@ -258,6 +258,10 @@ function main(user, writeUser, viewUser) {
   // 同時にひとつだけ開いて、パネルが縦に伸びすぎないようにする
   let openAddId = null;
 
+  // 中・小タスクを畳んでいる大タスクのID。画面を開き直したら全部開いた状態に戻すので、
+  // 一時保存（localStorage）には含めない
+  const collapsedIds = new Set();
+
   // 削除ボタンのゴミ箱。端末によって見え方が変わる絵文字は使わず、図形を直接埋め込む。
   // 色と大きさはボタン側（.task-icon-btn）に合わせる
   const TRASH_ICON = `
@@ -271,6 +275,12 @@ function main(user, writeUser, viewUser) {
       <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
       <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
       <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
+    </svg>`;
+
+  // 大タスクの折りたたみの矢印。開いているときは下向き、畳むと右向きに回す（style.css）
+  const CHEVRON_ICON = `
+    <svg class="task-toggle-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M6 9l6 6 6-6" />
     </svg>`;
 
   function findTask(id) {
@@ -305,12 +315,27 @@ function main(user, writeUser, viewUser) {
     const handleHtml = `
       <span class="task-drag-handle" draggable="true" data-drag="${major.id}"
             title="ドラッグで並び替え">${DRAG_ICON}</span>`;
+    // 畳んでいる間は、中・小タスクと追加欄を描かない
+    const collapsed = collapsedIds.has(major.id);
+    const bodyHtml = collapsed
+      ? ''
+      : `${major.children.map(taskMiddleHtml).join('')}
+        ${taskAddInputHtml(major, '中タスクを追加', false)}`;
     return `
-      <div class="task-group" data-major="${major.id}">
-        ${taskRowHtml(major, 'task-row-major', '大タスク', '＋中', handleHtml)}
-        ${major.children.map(taskMiddleHtml).join('')}
-        ${taskAddInputHtml(major, '中タスクを追加', false)}
+      <div class="task-group${collapsed ? ' is-collapsed' : ''}" data-major="${major.id}">
+        ${taskRowHtml(major, 'task-row-major', '大タスク', '＋中', handleHtml, taskToggleHtml(major))}
+        ${bodyHtml}
       </div>`;
+  }
+
+  // 大タスク名の右に置く折りたたみボタン。畳むものが無い（中タスクが無い）うちは出さない
+  function taskToggleHtml(major) {
+    if (major.children.length === 0) return '';
+    const collapsed = collapsedIds.has(major.id);
+    const label = collapsed ? '中・小タスクを開く' : '中・小タスクを畳む';
+    return `
+      <button type="button" class="task-toggle" data-toggle="${major.id}"
+              aria-expanded="${!collapsed}" aria-label="${label}" title="${label}">${CHEVRON_ICON}</button>`;
   }
 
   function taskMiddleHtml(middle) {
@@ -323,8 +348,9 @@ function main(user, writeUser, viewUser) {
   // 大・中タスクの行。「登録」を押すまでは追加 / 削除だけを出し、
   // 登録したら小タスクと同じ「完了 / 未達 / 削除」に入れ替える。
   // 下の階層を足したあとは、書き出しがその子の側に移るので「登録」は出さない。
-  // handleHtml は行の左端に置くもの（大タスクの並び替えのつまみ）
-  function taskRowHtml(task, rowClass, label, addLabel, handleHtml = '') {
+  // handleHtml は行の左端に置くもの（大タスクの並び替えのつまみ）、
+  // toggleHtml はタスク名の右に置くもの（大タスクの折りたたみボタン）
+  function taskRowHtml(task, rowClass, label, addLabel, handleHtml = '', toggleHtml = '') {
     const registerHtml = canRegister(task)
       ? `<button type="button" class="task-icon-btn" data-register="${task.id}">登録</button>`
       : '';
@@ -339,6 +365,7 @@ function main(user, writeUser, viewUser) {
       <div class="task-row ${rowClass}${task.registered ? ' is-registered' : ''}"${stateAttr(task)}>
         ${handleHtml}
         <p class="task-row-text">${escapeHtml(task.name)}</p>
+        ${toggleHtml}
         ${controls}
       </div>`;
   }
@@ -472,9 +499,25 @@ function main(user, writeUser, viewUser) {
       return;
     }
 
+    // 大タスクの折りたたみ。畳んだグループの中で開いていた追加欄は閉じる
+    const toggleBtn = event.target.closest('[data-toggle]');
+    if (toggleBtn) {
+      const id = Number(toggleBtn.dataset.toggle);
+      if (collapsedIds.has(id)) {
+        collapsedIds.delete(id);
+      } else {
+        collapsedIds.add(id);
+        const open = openAddId === null ? null : findTask(openAddId);
+        if (open && open.major.id === id) openAddId = null;
+      }
+      renderTaskTree();
+      return;
+    }
+
     const addBtn = event.target.closest('[data-add]');
     if (addBtn) {
       const id = Number(addBtn.dataset.add);
+      collapsedIds.delete(id); // 畳んだ大タスクの「＋中」は、開いてから追加欄を出す
       openAddId = openAddId === id ? null : openAddIdFor(taskTree, id); // もう一度押したら閉じる
       renderTaskTree();
       return;
