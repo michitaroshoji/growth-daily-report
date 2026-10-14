@@ -2360,6 +2360,46 @@ button.user-chip:hover {
   box-shadow: inset 0 -2px 0 var(--primary);
 }
 
+/* ---------- 大タスクの折りたたみ ---------- */
+/* 矢印をタスク名のすぐ右に置くため、大タスクの名前は伸ばさず、矢印の右側を空ける */
+.task-row-major:has(.task-toggle) .task-row-text {
+  flex: 0 1 auto;
+}
+
+.task-toggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-right: auto;
+  padding: 2px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.task-toggle:hover {
+  color: var(--text);
+  background: #f1f5f9;
+}
+
+.task-toggle-svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.15s;
+}
+
+.task-group.is-collapsed .task-toggle-svg {
+  transform: rotate(-90deg);
+}
+
 /* ---------- 行の操作ボタン ---------- */
 /* 完了 / 未達 / 削除 は .seg / .seg-btn（振り返りと同じ見た目）を使い回す */
 .task-row .seg-btn {
