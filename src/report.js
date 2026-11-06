@@ -21,7 +21,10 @@ import {
   canAddChild,
   canRegister,
   findTaskPath,
+  liveMajorIds,
   moveMajorTask,
+  nextPriority,
+  normalizePriority,
   openAddIdFor,
   removeTask,
 } from './task-tree.js';
@@ -245,7 +248,7 @@ function main(user, writeUser, viewUser) {
 
   // ============================================================
   // 0-c. タスク管理（3階層）
-  //   tree = [{ id, name, registered, status, children: [{ ... }] }]
+  //   tree = [{ id, name, registered, status, priority, children: [{ ... }] }]
   //   Supabase には保存しない。この端末の localStorage にだけ一時保存する
   //   （日をまたいで持ち越すので、日報本文の下書きとは別のキー）
   // ============================================================
@@ -258,8 +261,8 @@ function main(user, writeUser, viewUser) {
   // 同時にひとつだけ開いて、パネルが縦に伸びすぎないようにする
   let openAddId = null;
 
-  // 中・小タスクを畳んでいる大タスクのID。画面を開き直したら全部開いた状態に戻すので、
-  // 一時保存（localStorage）には含めない
+  // 中・小タスクを畳んでいる大タスクのID。タスクと一緒に一時保存（localStorage）し、
+  // 画面を開き直しても、前回畳んだ大タスクは畳んだままにする
   const collapsedIds = new Set();
 
   // 削除ボタンのゴミ箱。端末によって見え方が変わる絵文字は使わず、図形を直接埋め込む。
@@ -362,21 +365,37 @@ function main(user, writeUser, viewUser) {
                 aria-label="${label}を削除">${TRASH_ICON}</button>`;
 
     return `
-      <div class="task-row ${rowClass}${task.registered ? ' is-registered' : ''}"${stateAttr(task)}>
-        ${handleHtml}
-        <p class="task-row-text">${escapeHtml(task.name)}</p>
-        ${toggleHtml}
-        ${controls}
+      <div class="task-line">
+        <div class="task-row ${rowClass}${task.registered ? ' is-registered' : ''}"${stateAttr(task)}>
+          ${handleHtml}
+          <p class="task-row-text">${escapeHtml(task.name)}</p>
+          ${toggleHtml}
+          ${controls}
+        </div>
+        ${taskPriorityHtml(task)}
       </div>`;
   }
 
   // 最下層のタスクは、登録しなくても最初から書き出せる
   function taskMinorHtml(minor) {
     return `
-      <div class="task-row task-row-minor is-leaf"${stateAttr(minor)}>
-        <p class="task-row-text">${escapeHtml(minor.name)}</p>
-        ${taskActionsHtml(minor.id)}
+      <div class="task-line">
+        <div class="task-row task-row-minor is-leaf"${stateAttr(minor)}>
+          <p class="task-row-text">${escapeHtml(minor.name)}</p>
+          ${taskActionsHtml(minor.id)}
+        </div>
+        ${taskPriorityHtml(minor)}
       </div>`;
+  }
+
+  // 行の枠の外（右端）に置く優先度の四角いボタン。押すたびに 空白→低→中→高→今→空白。
+  // 色は style.css の [data-priority-value]。日報テキストへは書き出さない
+  function taskPriorityHtml(task) {
+    const priority = normalizePriority(task.priority);
+    const label = priority ? `優先度：${priority}（押すと切り替え）` : '優先度を付ける';
+    return `
+      <button type="button" class="task-priority" data-priority="${task.id}"
+              data-priority-value="${priority}" aria-label="${label}" title="${label}">${priority}</button>`;
   }
 
   function taskActionsHtml(id) {
@@ -495,6 +514,18 @@ function main(user, writeUser, viewUser) {
       const path = findTask(id);
       if (path) (path.middle || path.major).registered = true;
       openAddId = openAddIdFor(taskTree, openAddId); // 登録した行の追加欄は閉じる
+      renderTaskTree();
+      return;
+    }
+
+    // 優先度。押すたびに次の段階へ進める（今の次は空白に戻る）
+    const priorityBtn = event.target.closest('[data-priority]');
+    if (priorityBtn) {
+      const path = findTask(Number(priorityBtn.dataset.priority));
+      if (path) {
+        const task = path.minor || path.middle || path.major;
+        task.priority = nextPriority(normalizePriority(task.priority));
+      }
       renderTaskTree();
       return;
     }
@@ -627,7 +658,12 @@ function main(user, writeUser, viewUser) {
       clearDraft(TASK_DRAFT_KEY);
       return;
     }
-    saveDraft(TASK_DRAFT_KEY, { tasks: taskTree, nextTaskId });
+    // 畳んだ大タスクも一緒に残す。消した大タスクのIDはここで捨てる
+    saveDraft(TASK_DRAFT_KEY, {
+      tasks: taskTree,
+      nextTaskId,
+      collapsed: liveMajorIds(taskTree, collapsedIds),
+    });
   }
 
   function restoreTaskDraft() {
@@ -639,6 +675,8 @@ function main(user, writeUser, viewUser) {
       taskTree.push(...draft.tasks);
       // 連番も戻す。1から振り直すと、復元したタスクとIDがぶつかって別の行を消してしまう
       nextTaskId = Number(draft.nextTaskId) || 1;
+      // 前回畳んでいた大タスクは、畳んだまま開く
+      liveMajorIds(taskTree, draft.collapsed).forEach((id) => collapsedIds.add(id));
     }
 
     taskDraftReady = true;

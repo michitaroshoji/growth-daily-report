@@ -2,7 +2,7 @@
 // タスク管理（3階層）のデータ操作と、日報テキストへの差し込み
 //
 //   ツリーの形:
-//     [{ id, name, registered, status, children: [{ ... , children: [{ ... }] }] }]
+//     [{ id, name, registered, status, priority, children: [{ ... , children: [{ ... }] }] }]
 //
 //   日報へ書き出す形（インデント1段 = 全角スペース1つ）:
 //     ・{大タスク}
@@ -85,6 +85,32 @@ export function moveMajorTask(tree, id, beforeId) {
   const [major] = tree.splice(from, 1);
   tree.splice(before > from ? before - 1 : before, 0, major);
   return true;
+}
+
+// ============================================================
+// 優先度（行の右の四角いボタン）
+//   押すたびに 空白 → 低 → 中 → 高 → 今 → 空白 … と切り替わる。
+//   画面の上だけの目印で、日報テキストへは書き出さない
+// ============================================================
+export const TASK_PRIORITIES = ['低', '中', '高', '今'];
+
+// いまの優先度の「次」を返す。最後（今）の次と、知らない値の次は空白（''）
+export function nextPriority(current) {
+  if (!current) return TASK_PRIORITIES[0];
+  const index = TASK_PRIORITIES.indexOf(current);
+  return index < 0 || index === TASK_PRIORITIES.length - 1 ? '' : TASK_PRIORITIES[index + 1];
+}
+
+// 一時保存から戻すときに、知らない値（壊れた下書きなど）を空白に戻す
+export function normalizePriority(value) {
+  return TASK_PRIORITIES.includes(value) ? value : '';
+}
+
+// 畳んだ大タスクのIDのうち、いまツリーにあるものだけを返す（消したタスクのIDは捨てる）
+export function liveMajorIds(tree, ids) {
+  const live = new Set(tree.map((major) => major.id));
+  const list = ids instanceof Set || Array.isArray(ids) ? [...new Set(ids)] : [];
+  return list.filter((id) => live.has(id));
 }
 
 // ============================================================

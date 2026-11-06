@@ -7,6 +7,8 @@
 //   ・「前回のタスクを復元しました」の帯と「タスクを破棄する」ボタンが無いこと
 //   ・タスクの追加欄とツリーは残っていること
 //   ・大タスクの折りたたみボタンが、並び替えのつまみとぶつからないこと
+//   ・大タスクの折りたたみ状態が、タスクと一緒に一時保存されること
+//   ・優先度ボタンが、行の枠（.task-row）の外に置かれていること
 // ============================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -46,12 +48,12 @@ test('タスクの追加欄とツリーは残っている', () => {
   assert.ok(panel.includes('id="task-tree"'));
 });
 
-test('大タスクに折りたたみボタンがあり、最初は開いている', () => {
+test('大タスクに折りたたみボタンがあり、畳んだ状態を一時保存する', () => {
   assert.ok(js.includes('data-toggle="${major.id}"'));
   assert.ok(js.includes('aria-expanded="${!collapsed}"'));
-  // 畳んだ状態は一時保存せず、画面を開いたときは空（＝全部開いている）から始める
-  assert.ok(js.includes('const collapsedIds = new Set();'));
-  assert.ok(!/saveDraft\([^)]*collapsed/.test(js));
+  // 畳んだ大タスクはタスクと同じキーへ保存し、開き直したときに戻す
+  assert.ok(/saveDraft\(TASK_DRAFT_KEY, \{[\s\S]*?collapsed: liveMajorIds\(taskTree, collapsedIds\)/.test(js));
+  assert.ok(js.includes('liveMajorIds(taskTree, draft.collapsed)'));
 });
 
 test('折りたたみボタンは並び替えのつまみと別の要素になっている', () => {
@@ -60,4 +62,13 @@ test('折りたたみボタンは並び替えのつまみと別の要素にな�
   assert.ok(handle, '並び替えのつまみが見つからない');
   assert.ok(!handle[0].includes('data-toggle'));
   assert.ok(!/class="task-toggle"[^>]*draggable/.test(js));
+});
+
+test('優先度ボタンは行の枠の外（右）にあり、完了 / 未達 / 削除の中に入っていない', () => {
+  // 行（.task-row）を閉じたあと、同じ .task-line の中に優先度ボタンを置く
+  const lines = js.match(/<div class="task-line">[\s\S]*?<\/div>\s*\$\{taskPriorityHtml\(\w+\)\}\s*<\/div>/g) || [];
+  assert.equal(lines.length, 2, '大・中タスクの行と、小タスクの行の2か所');
+  const actions = /function taskActionsHtml[\s\S]*?\n  \}/.exec(js);
+  assert.ok(actions);
+  assert.ok(!actions[0].includes('data-priority'));
 });
