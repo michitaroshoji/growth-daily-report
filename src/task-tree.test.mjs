@@ -13,10 +13,14 @@ import {
   canAddChild,
   canRegister,
   findTaskPath,
+  liveMajorIds,
   moveMajorTask,
+  nextPriority,
+  normalizePriority,
   openAddIdFor,
   removeTask,
   taskLine,
+  TASK_PRIORITIES,
 } from './task-tree.js';
 
 const TASK = { major: 'A社対応', middle: '見積', minor: '原価の確認' };
@@ -296,4 +300,51 @@ test('大タスクでないid・消えたidは動かさない', () => {
   assert.equal(moveMajorTask(tree, 99, 1), false);
   assert.equal(moveMajorTask(tree, 1, 99), false);
   assert.deepEqual(majorNames(tree), ['A社対応', 'B社対応', 'C社対応']);
+});
+
+// ============================================================
+// 優先度
+// ============================================================
+test('優先度は 空白 → 低 → 中 → 高 → 今 → 空白 の順に回る', () => {
+  const seen = [];
+  let priority = '';
+  for (let i = 0; i < 6; i += 1) {
+    priority = nextPriority(priority);
+    seen.push(priority);
+  }
+  assert.deepEqual(seen, ['低', '中', '高', '今', '', '低']);
+  assert.deepEqual(TASK_PRIORITIES, ['低', '中', '高', '今']);
+});
+
+test('優先度が未設定・知らない値なら空白として扱う', () => {
+  assert.equal(nextPriority(undefined), '低');
+  assert.equal(nextPriority(null), '低');
+  assert.equal(normalizePriority(undefined), '');
+  assert.equal(normalizePriority('最優先'), '');
+  assert.equal(normalizePriority('高'), '高');
+});
+
+test('優先度を付けても日報テキストへの書き出しは変わらない', () => {
+  const task = { major: 'A社対応', middle: '見積', minor: '原価の確認', priority: '今' };
+  assert.equal(appendTaskLine('', task), TASK_LINES.join('\n'));
+});
+
+// ============================================================
+// 折りたたみの一時保存
+// ============================================================
+test('畳んだ大タスクのIDは、ツリーに残っているものだけを残す', () => {
+  const tree = [
+    { id: 1, name: 'A社対応', children: [] },
+    { id: 5, name: 'B社対応', children: [] },
+  ];
+  assert.deepEqual(liveMajorIds(tree, [1, 5, 99]), [1, 5]);
+  assert.deepEqual(liveMajorIds(tree, new Set([5])), [5]);
+  assert.deepEqual(liveMajorIds(tree, [1, 1]), [1]);
+});
+
+test('壊れた下書き（配列でない）からは何も畳まない', () => {
+  const tree = [{ id: 1, name: 'A社対応', children: [] }];
+  assert.deepEqual(liveMajorIds(tree, undefined), []);
+  assert.deepEqual(liveMajorIds(tree, 1), []);
+  assert.deepEqual(liveMajorIds(tree, '1'), []);
 });

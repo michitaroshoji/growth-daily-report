@@ -2203,7 +2203,8 @@ button.user-chip:hover {
     right: calc(50% + 402px);
     top: calc(var(--topbar-h, 96px) + 12px);
     /* 「画面の半分 − フォームの半分(390px) − 左右の余白(24px)」に収まる幅 */
-    width: min(320px, calc(50% - 414px));
+    /* 行の右に優先度ボタンを置くぶん、少しだけ広げる */
+    width: min(348px, calc(50% - 414px));
     max-height: calc(100vh - var(--topbar-h, 96px) - 24px);
     overflow-y: auto;
     margin-bottom: 0;
@@ -2260,6 +2261,18 @@ button.user-chip:hover {
   align-items: center;
   gap: 6px;
   padding: 3px 0;
+}
+
+/* 1行ぶん＝タスクの行（枠）＋その外側右の優先度ボタン */
+.task-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-line > .task-row {
+  flex: 1;
+  min-width: 0;
 }
 
 .task-row-text {
@@ -2412,13 +2425,14 @@ button.user-chip:hover {
   color: #fff;
 }
 
+/* 未達・削除の赤は強すぎると入力の妨げになるので、薄く柔らかい赤にする */
 .task-row[data-state='未達'] .seg-btn[data-act='miss'] {
-  background: var(--error);
-  color: #fff;
+  background: #fecaca;
+  color: #b45454;
 }
 
 .seg-btn[data-act='remove'] {
-  color: var(--error);
+  color: #e08585;
 }
 
 /* 見出し（大・中タスク）に付ける小さな追加 / 削除ボタン */
@@ -2470,4 +2484,52 @@ button.user-chip:hover {
 
 .task-add-child.is-minor {
   padding-left: 18px;
+}
+
+/* ---------- 優先度 ---------- */
+/* 行の枠の外、右端に置く四角いボタン。空白 → 低 → 中 → 高 → 今 の順に切り替わる */
+.task-priority {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.task-priority:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.task-priority[data-priority-value='低'] {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.task-priority[data-priority-value='中'] {
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-color: #bfdbfe;
+}
+
+.task-priority[data-priority-value='高'] {
+  color: #b45309;
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+.task-priority[data-priority-value='今'] {
+  color: #be123c;
+  background: #ffe4e6;
+  border-color: #fecdd3;
 }
